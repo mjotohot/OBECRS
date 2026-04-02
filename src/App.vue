@@ -1,12 +1,7 @@
 <script setup lang="ts"></script>
 
 <template>
-  <h1 class="text-3xl font-bold underline text-green-800">Hello world!</h1>
-
-  <v-btn>
-    <v-icon start>mdi-arrow-left</v-icon>
-    Back
-  </v-btn>
+  <h1 class="text-7xl font-bold underline text-green-800">Hello world!</h1>
 </template>
 
 <style scoped></style>
