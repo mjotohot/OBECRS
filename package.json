@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fontsource/roboto": "^5.2.10",
+    "@phosphor-icons/vue": "^2.2.1",
     "@supabase/supabase-js": "^2.101.1",
     "@tailwindcss/vite": "^4.2.2",
     "pinia": "^3.0.4",

@@ -1,7 +1,10 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import Toast from '@/components/commons/Toast.vue'
+</script>
 
 <template>
-  <h1 class="text-7xl font-bold underline text-green-800">Hello world!</h1>
+  <router-view />
+  <Toast />
 </template>
 
 <style scoped></style>
