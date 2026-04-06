@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/useAuthStore'
+
 import Login from '@/views/auth/Login.vue'
 import Register from '@/views/auth/Register.vue'
 import ForgotPassword from '@/views/auth/ForgotPassword.vue'
@@ -10,7 +12,7 @@ const routes = [
   { path: '/register', component: Register },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/reset-password', component: ResetPassword },
-  { path: '/faculty/dashboard', component: FacultyDashboard },
+  { path: '/faculty/dashboard', component: FacultyDashboard, meta: { requiresFaculty: true } },
 ]
 
 const router = createRouter({
@@ -18,29 +20,29 @@ const router = createRouter({
   routes,
 })
 
-// router.beforeEach(async (to, from, next) => {
-//   const { data: { session } } = await supabase.auth.getSession()
-//   if (!session) {
-//     if (to.meta.requiresAuth) next('/login')
-//     else next()
-//     return
-//   }
+router.beforeEach(async (to, from, next) => {
+  const auth = useAuthStore()
+  await auth.fetchUser()
 
-//   // Fetch role from your store or directly
-//   const { data: profile } = await supabase
-//     .from('user')
-//     .select('role')
-//     .eq('user_id', session.user.id)
-//     .maybeSingle()
+  const publicAuthRoutes = ['/', '/register', '/forgot-password', '/reset-password']
 
-//   const role = profile?.role
-//   const requiredRole = to.meta.role // e.g., meta: { role: 'Admin' }
+  if (auth.user && publicAuthRoutes.includes(to.path)) {
+    if (auth.role === 'Faculty') {
+      next('/faculty/dashboard')
+    } else if (auth.role === 'Admin') {
+      next('/admin/dashboard')
+    } else {
+      next('/')
+    }
+    return
+  }
 
-//   if (requiredRole && role !== requiredRole) {
-//     next('/unauthorized')
-//   } else {
-//     next()
-//   }
-// })
+  // Protect faculty routes
+  if (to.meta.requiresFaculty && auth.role !== 'Faculty') {
+    next('/')
+  } else {
+    next()
+  }
+})
 
 export default router

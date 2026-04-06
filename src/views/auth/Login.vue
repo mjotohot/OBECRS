@@ -41,6 +41,7 @@ async function handleSubmit() {
   if (success.value && result) {
     isRedirecting.value = true
     const role = result.role
+    console.log('User role:', role)
     const routeMap = {
       Faculty: '/faculty/dashboard',
       Chairperson: '/chairperson/dashboard',
