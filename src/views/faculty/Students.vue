@@ -2,26 +2,27 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { signOut } from '@/services/auth.service'
-import { getCoursesByAdviser, createCourse, updateCourse, type Course } from '@/services/courses.service'
+import { getStudentsByAdviser, createStudent, updateStudent } from '@/services/student.service'
 import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import AppModal from '@/components/commons/AppModal.vue'
-import CourseModal from '@/components/commons/CourseModal.vue'
+import StudentModal from '@/components/commons/StudentModal.vue'
+import type { Student } from '@/types/studentTypes'
 
 
 const router = useRouter()
 const showLogoutConfirm = ref(false)
-const showCourseModal = ref(false)
+const showStudentModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
-const selectedCourse = ref<Course | null>(null)
+const selectedStudent = ref<Student | null>(null)
 const modalLoading = ref(false)
-const courses = ref<Course[]>([])
+const students = ref<Student[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
 
-// Fetch courses from Supabase
-const fetchCourses = async () => {
+// Fetch students from Supabase
+const fetchStudents = async () => {
   loading.value = true
   error.value = null
   
@@ -35,37 +36,37 @@ const fetchCourses = async () => {
     }
     
     currentUser.value = userResponse.data
-    const coursesResponse = await getCoursesByAdviser(+userResponse.data.id)
+    const studentsResponse = await getStudentsByAdviser(+userResponse.data.id)
     
-    if (coursesResponse.error) {
-      error.value = coursesResponse.error
+    if (studentsResponse.error) {
+      error.value = studentsResponse.error
     } else {
-      courses.value = coursesResponse.data || []
+      students.value = studentsResponse.data || []
     }
   } catch (err) {
-    console.error('Error fetching courses:', err)
-    error.value = 'Failed to load courses'
+    console.error('Error fetching students:', err)
+    error.value = 'Failed to load students'
   } finally {
     loading.value = false
   }
 }
 
-// Open add course modal
+// Open add student modal
 const openAddModal = () => {
   modalMode.value = 'add'
-  selectedCourse.value = null
-  showCourseModal.value = true
+  selectedStudent.value = null
+  showStudentModal.value = true
 }
 
-// Open edit course modal
-const openEditModal = (course: Course) => {
+// Open edit student modal
+const openEditModal = (student: Student) => {
   modalMode.value = 'edit'
-  selectedCourse.value = course
-  showCourseModal.value = true
+  selectedStudent.value = student
+  showStudentModal.value = true
 }
 
-// Handle course form submission
-const handleCourseSubmit = async (formData: any) => {
+// Handle student form submission
+const handleStudentSubmit = async (formData: any) => {
   if (!currentUser.value) {
     error.value = 'User not authenticated'
     return
@@ -75,52 +76,48 @@ const handleCourseSubmit = async (formData: any) => {
   
   try {
     if (modalMode.value === 'add') {
-      // Add new course
-      const courseData = {
+      // Add new student
+      const studentData = {
         adviser_id: currentUser.value.id,
-        course_code: formData.course_code.toUpperCase().trim(),
-        course_title: formData.course_title.trim(),
-        section: formData.section.trim().toUpperCase(),
-        academic_year: formData.academic_year, // Make sure this is the ID
-        status: formData.status
+        id_number: formData.id_number.trim(),
+        name: formData.name.trim()
       }
-      
-      const response = await createCourse(courseData, currentUser.value.id)
+    
+      const response = await createStudent(studentData, currentUser.value.id)
       
       if (response.error) {
         error.value = response.error
       } else if (response.data) {
-        courses.value.unshift(response.data)
-        showCourseModal.value = false
-        console.log('Course added successfully')
+        students.value.unshift(response.data)
+        showStudentModal.value = false
+        console.log('Student added successfully')
       }
     } else {
-      // Edit existing course
-      if (!selectedCourse.value) return
+      // Edit existing student
+      if (!selectedStudent.value) return
       
       const updateData = {
-        course_title: formData.course_title.trim(),
-        section: formData.section.trim().toUpperCase(),
-        academic_year_id: formData.academic_year_id,
-        status: formData.status
+        adviser_id: currentUser.value.id,
+        id_number: formData.id_number.trim(),
+        name: formData.name.trim()
       }
       
-      const response = await updateCourse(selectedCourse.value.id, updateData)
+      const response = await updateStudent(selectedStudent.value.id, updateData)
       
       if (response.error) {
         error.value = response.error
       } else if (response.data) {
-        const index = courses.value.findIndex(c => c.id === response.data?.id)
+        const index = students.value.findIndex(s => s.id === response.data?.id)
         if (index !== -1) {
-          courses.value[index] = response.data
+          students.value[index] = response.data
         }
-        showCourseModal.value = false
-        console.log('Course updated successfully')
+        showStudentModal.value = false
+        console.log('Student updated successfully')
       }
     }
   } catch (err) {
-    console.error('Error saving course:', err)
-    error.value = 'Failed to save course'
+    console.error('Error saving student:', err)
+    error.value = 'Failed to save student'
   } finally {
     modalLoading.value = false
   }
@@ -136,24 +133,24 @@ const handleLogoutConfirm = async () => {
   }
 }
 
-// Action handlers
-const handleViewClassRecord = (course: Course) => {
-  console.log('View class record for:', course.course_code)
-  // Navigate to class record page or open modal
-  // router.push(`/courses/${course.id}/class-record`)
-}
+// // Action handlers
+// const handleViewClassRecord = (course: Course) => {
+//   console.log('View class record for:', course.course_code)
+//   // Navigate to class record page or open modal
+//   // router.push(`/courses/${course.id}/class-record`)
+// }
 
-const handleUploadSyllabus = (course: Course) => {
-  console.log('Upload syllabus for:', course.course_code)
-  // Open syllabus upload modal or navigate to upload page
-  // router.push(`/courses/${course.id}/upload-syllabus`)
-}
+// const handleUploadSyllabus = (course: Course) => {
+//   console.log('Upload syllabus for:', course.course_code)
+//   // Open syllabus upload modal or navigate to upload page
+//   // router.push(`/courses/${course.id}/upload-syllabus`)
+// }
 
-const handleCOReport = (course: Course) => {
-  console.log('Generate CO report for:', course.course_code)
-  // Navigate to CO report page or generate report
-  // router.push(`/courses/${course.id}/co-report`)
-}
+// const handleCOReport = (course: Course) => {
+//   console.log('Generate CO report for:', course.course_code)
+//   // Navigate to CO report page or generate report
+//   // router.push(`/courses/${course.id}/co-report`)
+// }
 
 // Determine which buttons to show based on status
 const shouldShowUploadSyllabus = (status: string) => {
@@ -170,7 +167,7 @@ const shouldShowCOReport = (status: string) => {
 
 // Lifecycle
 onMounted(() => {
-  fetchCourses()
+  fetchStudents()
 })
 
 // Get status badge styling
@@ -207,17 +204,17 @@ const getStatusIcon = (status: string) => {
       <!-- Header Section with Add Button -->
       <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-3xl font-bold text-gray-900">My Active Courses</h2>
+          <h2 class="text-3xl font-bold text-gray-900">Students List</h2>
           <p class="mt-1 text-gray-500">
-            Manage class records and track course outcome attainment for your courses
+            Manage your students and their course information here. You can view class records, upload syllabi, and generate CO reports for each student.
           </p>
         </div>
         <button
-          @click="openAddModal"
+        @click="openAddModal"
           class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           <i class="fas fa-plus mr-2"></i>
-          Add Course
+          Add  Student
         </button>
       </div>
 
@@ -229,28 +226,22 @@ const getStatusIcon = (status: string) => {
       <!-- Error State -->
       <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
         <p class="text-red-700">{{ error }}</p>
-        <button @click="fetchCourses" class="mt-2 text-sm text-red-600 hover:text-red-800">
+        <button @click="fetchStudents" class="mt-2 text-sm text-red-600 hover:text-red-800">
           Try Again
         </button>
       </div>
 
-      <!-- Courses Table -->
+      <!-- Students Table -->
       <div v-else class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Course Code
+                  ID Number
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Course Title
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Section
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CO Attainment Status
+                  NAme
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -258,66 +249,33 @@ const getStatusIcon = (status: string) => {
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="course in courses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-200">
+              <tr v-for="student in students" :key="student.id" class="hover:bg-gray-50 transition-colors duration-200">
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm font-medium text-gray-900">{{ course.course_code }}</span>
+                  <span class="text-sm font-medium text-gray-900">{{ student.id_number }}</span>
                 </td>
                 <td class="px-6 py-4">
-                  <span class="text-sm text-gray-900">{{ course.course_title }}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm text-gray-900">{{ course.section }}</span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', getStatusBadgeClass(course.status)]">
-                    <i :class="[getStatusIcon(course.status), 'mr-1.5 text-xs']"></i>
-                    {{ course.status }}
-                  </span>
+                  <span class="text-sm text-gray-900">{{ student.name }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div class="flex items-center space-x-3">
                     <!-- Show View Class Record for statuses other than 'Not Started' -->
                     <button 
-                      v-if="shouldShowViewClassRecord(course.status)"
-                      @click="handleViewClassRecord(course)"
                       class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
                     >
-                      View Class Record
+                      Add to Course
                     </button>
-                    
-                    <!-- Show Upload Syllabus only for 'Not Started' status -->
                     <button 
-                      v-if="shouldShowUploadSyllabus(course.status)" 
-                      @click="handleUploadSyllabus(course)" 
                       class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
                     >
-                      Upload Syllabus
-                    </button>
-                    
-                    <!-- Show CO Report for statuses other than 'Not Started' -->
-                    <button 
-                      v-if="shouldShowCOReport(course.status)"
-                      @click="handleCOReport(course)" 
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
-                    >
-                      CO Report
-                    </button>
-                    
-                    <!-- Edit button (always visible) -->
-                    <button 
-                      @click="openEditModal(course)" 
-                      class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
-                      title="Edit Course"
-                    >
-                      <i class="fas fa-edit"></i>
+                      Delete
                     </button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="courses.length === 0">
+              <tr v-if="students.length === 0">
                 <td colspan="5" class="px-6 py-12 text-center text-gray-500">
                   <i class="fas fa-book-open text-4xl mb-3 block"></i>
-                  No courses found. Click "Add Course" to get started.
+                  No students found.
                 </td>
               </tr>
             </tbody>
@@ -337,15 +295,13 @@ const getStatusIcon = (status: string) => {
         @cancel="showLogoutConfirm = false"
       />
 
-      <!-- Course Modal (Add/Edit) -->
-      <CourseModal
-        :isOpen="showCourseModal"
+       <StudentModal
+        :isOpen="showStudentModal"
         :mode="modalMode"
-        :course="selectedCourse"
+        :student="selectedStudent"
         :loading="modalLoading"
-        :disableCodeEdit="true"
-        @close="showCourseModal = false"
-        @submit="handleCourseSubmit"
+        @close="showStudentModal = false"
+        @submit="handleStudentSubmit"
       />
     </div>
   </AdminLayout>

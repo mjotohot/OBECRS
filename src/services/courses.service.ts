@@ -1,5 +1,6 @@
 // services/course.service.ts
 import { supabase } from './supabase.service'
+import { useAcademicYearStore } from '@/stores/academicYear'
 import type {CourseFilters, CourseResponse, CourseInsert, CourseUpdate } from '../types/courseTypes'
 
 // Type definitions for the course table based on your schema
@@ -26,11 +27,23 @@ export type AuthResponse<T = any> = {
 // Get all courses for a specific adviser/faculty
 export async function getCoursesByAdviser(adviserId: number): Promise<AuthResponse<Course[]>> {
   try {
-    const { data, error } = await supabase
-      .from('courses') // Assuming your table name is 'courses'
+    // Get active academic year from store
+    const academicYearStore = await useAcademicYearStore()
+    await academicYearStore.fetchActiveYear()
+    console.log('Active Academic Year in Store:', academicYearStore.activeYear)
+    const activeYearId = academicYearStore.activeYear?.id
+    
+    let query = supabase
+      .from('courses')
       .select('*')
       .eq('adviser_id', adviserId)
-      .order('created_at', { ascending: false })
+    
+    // Only filter by academic year if there's an active one
+    if (activeYearId) {
+      query = query.eq('academic_year', activeYearId)
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching courses:', error)
@@ -124,8 +137,7 @@ export async function getCourseById(courseId: number): Promise<AuthResponse<Cour
   }
 }
 
-// Create a new course
-export async function createCourse(courseData: CourseInsert): Promise<AuthResponse<Course>> {
+export async function createCourse(courseData: CourseInsert, adviserId: number): Promise<AuthResponse<Course>> {
   try {
     // Validate required fields
     if (!courseData.course_code || !courseData.course_title || !courseData.section) {
@@ -138,7 +150,7 @@ export async function createCourse(courseData: CourseInsert): Promise<AuthRespon
     const { data, error } = await supabase
       .from('courses')
       .insert([{
-        adviser_id: courseData.adviser_id,
+        adviser_id: adviserId, 
         course_code: courseData.course_code,
         course_title: courseData.course_title,
         section: courseData.section,
@@ -168,6 +180,7 @@ export async function createCourse(courseData: CourseInsert): Promise<AuthRespon
     }
   }
 }
+
 
 // Update an existing course
 export async function updateCourse(courseId: number, updates: CourseUpdate): Promise<AuthResponse<Course>> {

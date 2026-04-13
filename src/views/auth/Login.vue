@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import AuthLayout from '@/components/layouts/AuthLayout.vue'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { signInWithPassword } from '@/services/auth.service'
+import { useAcademicYearStore } from '@/stores/academicYear'
 import {
   PhGraduationCap,
   PhEnvelope,
@@ -42,6 +43,19 @@ async function handleSubmit() {
     isRedirecting.value = true
     const role = result.role
     console.log('User role:', role)
+    
+    // Fetch active academic year after successful login
+    const academicYearStore = await useAcademicYearStore()
+    await academicYearStore.fetchActiveYear()
+    const activeYear = academicYearStore.activeYear
+    const yearError = academicYearStore.error
+
+    if (activeYear && !yearError) {
+      console.log('Active academic year loaded:', activeYear)
+    } else {
+      console.warn('No active academic year found')
+    }
+    
     const routeMap = {
       Faculty: '/faculty/dashboard',
       Chairperson: '/chairperson/dashboard',
