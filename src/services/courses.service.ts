@@ -66,6 +66,40 @@ export async function getCoursesByAdviser(adviserId: number): Promise<AuthRespon
   }
 }
 
+// Get all courses for a specific adviser/faculty
+export async function getCourseOutcomeByCourse(courseId: number): Promise<AuthResponse<Course[]>> {
+  try {
+  
+    
+    let query = supabase
+      .from('course_outcomes')
+      .select('*')
+      .eq('course_id', courseId)
+    
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching courses:', error)
+      return {
+        data: null,
+        error: error.message
+      }
+    }
+
+    return {
+      data: data as Course[],
+      error: null
+    }
+  } catch (err) {
+    console.error('Unexpected error:', err)
+    return {
+      data: null,
+      error: 'Failed to fetch courses'
+    }
+  }
+}
+
+
 // Get courses with filters
 export async function getCoursesWithFilters(filters: CourseFilters): Promise<AuthResponse<Course[]>> {
   try {

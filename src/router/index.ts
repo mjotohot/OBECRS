@@ -8,6 +8,7 @@ import ResetPassword from '@/views/auth/ResetPassword.vue'
 import FacultyDashboard from '@/views/faculty/Dashboard.vue'
 import Students from '@/views/faculty/Students.vue'
 import Courses from '@/views/faculty/Courses.vue'
+import ClassRecords from '@/views/faculty/Students-Records.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -16,7 +17,8 @@ const routes = [
   { path: '/reset-password', component: ResetPassword },
   { path: '/faculty/dashboard', component: FacultyDashboard, meta: { requiresFaculty: true } },
   { path: '/faculty/courses', component: Courses, meta: { requiresFaculty: true } },
-  { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } }
+  { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } },
+  { path: '/faculty/class-records', component: ClassRecords, meta: { requiresFaculty: true } }
 ]
 
 const router = createRouter({

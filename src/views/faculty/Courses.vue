@@ -7,9 +7,11 @@ import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import AppModal from '@/components/commons/AppModal.vue'
 import CourseModal from '@/components/commons/CourseModal.vue'
+import { useCourseStore } from '@/stores/useCourseStore'
 
 
 const router = useRouter()
+const store = useCourseStore()
 const showLogoutConfirm = ref(false)
 const showCourseModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
@@ -138,11 +140,9 @@ const handleLogoutConfirm = async () => {
 
 // Action handlers
 const handleViewClassRecord = (course: Course) => {
-  console.log('View class record for:', course.course_code)
-  // Navigate to class record page or open modal
-  // router.push(`/courses/${course.id}/class-record`)
+  store.setCourse(course)
+  router.push('/faculty/class-records')
 }
-
 const handleUploadSyllabus = (course: Course) => {
   console.log('Upload syllabus for:', course.course_code)
   // Open syllabus upload modal or navigate to upload page

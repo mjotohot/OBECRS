@@ -8,11 +8,13 @@ import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import AppModal from '@/components/commons/AppModal.vue'
 import StudentModal from '@/components/commons/StudentModal.vue'
 import type { Student } from '@/types/studentTypes'
+import EnrollmentModal from '@/components/commons/EnrollmentModal.vue'
 
 
 const router = useRouter()
 const showLogoutConfirm = ref(false)
 const showStudentModal = ref(false)
+const showEnrollmentModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 const selectedStudent = ref<Student | null>(null)
 const modalLoading = ref(false)
@@ -56,6 +58,25 @@ const openAddModal = () => {
   modalMode.value = 'add'
   selectedStudent.value = null
   showStudentModal.value = true
+}
+
+// Open enrollment modal with selected student
+const openEnrollmentModal = (student: Student) => {
+  selectedStudent.value = student
+  showEnrollmentModal.value = true
+}
+
+// Close enrollment modal
+const closeEnrollmentModal = () => {
+  showEnrollmentModal.value = false
+  selectedStudent.value = null
+}
+
+// Handle successful enrollment
+const handleEnrollmentSuccess = () => {
+  closeEnrollmentModal()
+  // Optionally refresh student data or show success message
+  console.log('Enrollment successful')
 }
 
 // Open edit student modal
@@ -133,69 +154,18 @@ const handleLogoutConfirm = async () => {
   }
 }
 
-// // Action handlers
-// const handleViewClassRecord = (course: Course) => {
-//   console.log('View class record for:', course.course_code)
-//   // Navigate to class record page or open modal
-//   // router.push(`/courses/${course.id}/class-record`)
-// }
-
-// const handleUploadSyllabus = (course: Course) => {
-//   console.log('Upload syllabus for:', course.course_code)
-//   // Open syllabus upload modal or navigate to upload page
-//   // router.push(`/courses/${course.id}/upload-syllabus`)
-// }
-
-// const handleCOReport = (course: Course) => {
-//   console.log('Generate CO report for:', course.course_code)
-//   // Navigate to CO report page or generate report
-//   // router.push(`/courses/${course.id}/co-report`)
-// }
-
-// Determine which buttons to show based on status
-const shouldShowUploadSyllabus = (status: string) => {
-  return status === 'Not Started'
-}
-
-const shouldShowViewClassRecord = (status: string) => {
-  return status !== 'Not Started' // Show for 'In Progress' and 'Completed'
-}
-
-const shouldShowCOReport = (status: string) => {
-  return status !== 'Not Started' // Show for 'In Progress' and 'Completed'
+// Delete student
+const handleDeleteStudent = async (student: Student) => {
+  if (confirm(`Are you sure you want to delete ${student.name}?`)) {
+    // Add your delete logic here
+    console.log('Delete student:', student)
+  }
 }
 
 // Lifecycle
 onMounted(() => {
   fetchStudents()
 })
-
-// Get status badge styling
-const getStatusBadgeClass = (status: string) => {
-  switch (status) {
-    case 'In Progress':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'Not Started':
-      return 'bg-gray-100 text-gray-800'
-    case 'Completed':
-      return 'bg-green-100 text-green-800'
-    default:
-      return 'bg-gray-100 text-gray-800'
-  }
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'In Progress':
-      return 'fas fa-spinner fa-pulse'
-    case 'Not Started':
-      return 'fas fa-clock'
-    case 'Completed':
-      return 'fas fa-check-circle'
-    default:
-      return 'fas fa-circle'
-  }
-}
 </script>
 
 <template>
@@ -206,15 +176,15 @@ const getStatusIcon = (status: string) => {
         <div>
           <h2 class="text-3xl font-bold text-gray-900">Students List</h2>
           <p class="mt-1 text-gray-500">
-            Manage your students and their course information here. You can view class records, upload syllabi, and generate CO reports for each student.
+            Manage your students and enroll them to courses.
           </p>
         </div>
         <button
-        @click="openAddModal"
+          @click="openAddModal"
           class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           <i class="fas fa-plus mr-2"></i>
-          Add  Student
+          Add Student
         </button>
       </div>
 
@@ -241,7 +211,7 @@ const getStatusIcon = (status: string) => {
                   ID Number
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  NAme
+                  Name
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -258,14 +228,21 @@ const getStatusIcon = (status: string) => {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div class="flex items-center space-x-3">
-                    <!-- Show View Class Record for statuses other than 'Not Started' -->
                     <button 
+                      @click="openEnrollmentModal(student)"
                       class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
                     >
-                      Add to Course
+                      Enroll to Course
                     </button>
                     <button 
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                      @click="openEditModal(student)"
+                      class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      @click="handleDeleteStudent(student)"
+                      class="text-red-600 hover:text-red-900 transition-colors duration-200"
                     >
                       Delete
                     </button>
@@ -273,9 +250,9 @@ const getStatusIcon = (status: string) => {
                 </td>
               </tr>
               <tr v-if="students.length === 0">
-                <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                  <i class="fas fa-book-open text-4xl mb-3 block"></i>
-                  No students found.
+                <td colspan="3" class="px-6 py-12 text-center text-gray-500">
+                  <i class="fas fa-user-graduate text-4xl mb-3 block"></i>
+                  No students found. Click "Add Student" to get started.
                 </td>
               </tr>
             </tbody>
@@ -295,13 +272,22 @@ const getStatusIcon = (status: string) => {
         @cancel="showLogoutConfirm = false"
       />
 
-       <StudentModal
+      <!-- Student Modal (Add/Edit) -->
+      <StudentModal
         :isOpen="showStudentModal"
         :mode="modalMode"
         :student="selectedStudent"
         :loading="modalLoading"
         @close="showStudentModal = false"
         @submit="handleStudentSubmit"
+      />
+
+      <!-- Enrollment Modal -->
+      <EnrollmentModal
+        :isOpen="showEnrollmentModal"
+        :student="selectedStudent"
+        @close="closeEnrollmentModal"
+        @success="handleEnrollmentSuccess"
       />
     </div>
   </AdminLayout>

@@ -44,6 +44,25 @@ export async function getStudentsByAdviser(adviserId: number): Promise<AuthRespo
   }
 }
 
+// student.service.ts
+export const getStudentsByCourse = async (courseId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('enrollment')          // adjust table name to match your schema
+      .select('students(*)')        // assumes enrollments has a FK to students
+      .eq('course_id', courseId)
+
+    if (error) return { data: null, error: error.message }
+
+    // Flatten the nested students out of the join
+    const students = data?.map((row: any) => row.students) || []
+    return { data: students, error: null }
+
+  } catch (err) {
+    return { data: null, error: 'Failed to fetch students' }
+  }
+}
+
 export async function createStudent (studentData: StudentInsert, adviserId: number): Promise<AuthResponse<Student>> {
   try {
     // Validate required fields

@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppModal from '../commons/AppModal.vue'
 import navImage from '@/assets/images/navbar.svg'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { PhList, PhX, PhSignOut, PhUsers, PhPen, PhPrinter } from '@phosphor-icons/vue'
+import { PhList, PhX, PhSignOut, PhUsers, PhPen, PhPrinter, PhListChecks } from '@phosphor-icons/vue'
 
 defineProps<{
   isOpen: boolean
@@ -31,6 +31,7 @@ const navigationItems = computed(() => {
   if (user_role === 'Faculty') {
     return [
       { name: 'Courses', href: '/faculty/courses', icon: PhPen },
+      {name : 'Course Outcomes', href: '/faculty/course-outcomes', icon: PhListChecks},
       { name: 'Students', href: '/faculty/students', icon: PhUsers },
       { name: 'Reports', href: '/faculty/reports', icon: PhPrinter },
     ]
