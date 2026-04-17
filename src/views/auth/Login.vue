@@ -43,7 +43,7 @@ async function handleSubmit() {
     const role = result.role
     console.log('User role:', role)
     const routeMap = {
-      Faculty: '/faculty/dashboard',
+      Faculty: '/faculty/courses',
       Chairperson: '/chairperson/dashboard',
       Admin: '/admin/dashboard',
     }

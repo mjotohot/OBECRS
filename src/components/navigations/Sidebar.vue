@@ -31,7 +31,7 @@ const navigationItems = computed(() => {
   if (user_role === 'Faculty') {
     return [
       { name: 'Courses', href: '/faculty/courses', icon: PhPen },
-      { name: 'Students', href: '/faculty/students', icon: PhUsers },
+      { name: 'Students', href: '/faculty/class-record', icon: PhUsers },
       { name: 'Reports', href: '/faculty/reports', icon: PhPrinter },
     ]
   }
@@ -120,7 +120,7 @@ const defaultAvatar = 'https://img.daisyui.com/images/stock/photo-1534528741775-
         <span v-if="isOpen">Logout</span>
       </button>
     </div>
-       <AppModal
+    <AppModal
       :isOpen="showLogoutConfirm"
       title="Logout Confirmation"
       message="Are you sure you want to logout? You will be redirected to the home page."
@@ -130,6 +130,4 @@ const defaultAvatar = 'https://img.daisyui.com/images/stock/photo-1534528741775-
       @cancel="showLogoutConfirm = false"
     />
   </aside>
-
- 
 </template>

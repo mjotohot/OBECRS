@@ -5,16 +5,16 @@ import Login from '@/views/auth/Login.vue'
 import Register from '@/views/auth/Register.vue'
 import ForgotPassword from '@/views/auth/ForgotPassword.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
-import FacultyDashboard from '@/views/faculty/Dashboard.vue'
 import Courses from '@/views/faculty/Courses.vue'
+import ClassRecord from '@/views/faculty/ClassRecord.vue'
 
 const routes = [
   { path: '/', component: Login },
   { path: '/register', component: Register },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/reset-password', component: ResetPassword },
-  { path: '/faculty/dashboard', component: FacultyDashboard, meta: { requiresFaculty: true } },
   { path: '/faculty/courses', component: Courses, meta: { requiresFaculty: true } },
+  { path: '/faculty/class-record', component: ClassRecord, meta: { requiresFaculty: true } },
 ]
 
 const router = createRouter({
@@ -30,7 +30,7 @@ router.beforeEach(async (to, from, next) => {
 
   if (auth.user && publicAuthRoutes.includes(to.path)) {
     if (auth.role === 'Faculty') {
-      next('/faculty/dashboard')
+      next('/faculty/courses')
     } else if (auth.role === 'Admin') {
       next('/admin/dashboard')
     } else {
