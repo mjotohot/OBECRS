@@ -63,6 +63,20 @@ export const getStudentsByCourse = async (courseId: number) => {
   }
 }
 
+export const getEnrollmentsByCourse = async (courseId: number) => {
+  try {
+    const { data, error } = await supabase
+      .from('enrollment')
+      .select('id, student_id')  // ← make sure 'id' is here
+      .eq('course_id', courseId)
+
+    if (error) return { data: null, error: error.message }
+    return { data, error: null }
+  } catch (err) {
+    return { data: null, error: 'Failed to fetch enrollments' }
+  }
+}
+
 export async function createStudent (studentData: StudentInsert, adviserId: number): Promise<AuthResponse<Student>> {
   try {
     // Validate required fields

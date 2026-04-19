@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { signOut } from '@/services/auth.service'
-import { createStudent, updateStudent, getStudentsByCourse } from '@/services/student.service'
+import { createStudent, updateStudent, getStudentsByCourse, getEnrollmentsByCourse } from '@/services/student.service'
 import { getCourseOutcomeByCourse } from '@/services/courses.service'
 import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
@@ -11,6 +11,7 @@ import StudentModal from '@/components/commons/StudentModal.vue'
 import type { Student } from '@/types/studentTypes'
 import EnrollmentModal from '@/components/commons/EnrollmentModal.vue'
 import { useCourseStore } from '@/stores/useCourseStore'
+import { getGradesByEnrollments, upsertGrade } from '@/services/grades.service'
 
 interface CourseOutcome {
   id: number
@@ -37,6 +38,12 @@ const currentUser = ref<any>(null)
 const store = useCourseStore()
 const course = store.selectedCourse
 
+// enrollmentId map: studentId -> enrollmentId
+const enrollmentMap = ref<Record<number, number>>({})
+
+// scores: studentId -> coId -> score value
+const scores = ref<Record<number, Record<number, string | number>>>({})
+
 // Group outcomes by co_code
 const groupedOutcomes = computed(() => {
   const groups: Record<string, CourseOutcome[]> = {}
@@ -49,7 +56,7 @@ const groupedOutcomes = computed(() => {
 
 const coKeys = computed(() => Object.keys(groupedOutcomes.value))
 
-// Fetch course outcomes
+// Fetch course outcomes, students, enrollments, and grades
 const fetchData = async () => {
   loading.value = true
   error.value = null
@@ -59,9 +66,10 @@ const fetchData = async () => {
       return
     }
 
-    const [outcomesRes, studentsRes] = await Promise.all([
+    const [outcomesRes, studentsRes, enrollmentsRes] = await Promise.all([
       getCourseOutcomeByCourse(+course.id),
-      getStudentsByCourse(+course.id)  
+      getStudentsByCourse(+course.id),
+      getEnrollmentsByCourse(+course.id)
     ])
 
     if (outcomesRes.error) error.value = outcomesRes.error
@@ -70,6 +78,41 @@ const fetchData = async () => {
     if (studentsRes.error) error.value = studentsRes.error
     else students.value = studentsRes.data || []
 
+    if (enrollmentsRes.error) {
+      error.value = enrollmentsRes.error
+      return
+    }
+
+    if (enrollmentsRes.data) {
+      enrollmentMap.value = {}
+      const enrollmentIds: number[] = []
+
+      for (const enrollment of enrollmentsRes.data) {
+        enrollmentMap.value[enrollment.student_id] = enrollment.id
+        enrollmentIds.push(enrollment.id)
+      }
+
+      if (enrollmentIds.length > 0) {
+        const gradesRes = await getGradesByEnrollments(enrollmentIds)
+
+        if (!gradesRes.error && gradesRes.data) {
+          scores.value = {}
+
+          // Reverse map: enrollmentId -> studentId
+          const reverseMap: Record<number, number> = {}
+          for (const [studentId, enrollmentId] of Object.entries(enrollmentMap.value)) {
+            reverseMap[enrollmentId] = +studentId
+          }
+
+          for (const grade of gradesRes.data) {
+            const studentId = reverseMap[grade.enrollment_id]
+            if (studentId === undefined) continue
+            if (!scores.value[studentId]) scores.value[studentId] = {}
+            scores.value[studentId][grade.course_outcome_id] = grade.score
+          }
+        }
+      }
+    }
   } catch (err) {
     console.error('Error fetching data:', err)
     error.value = 'Failed to load data'
@@ -78,30 +121,81 @@ const fetchData = async () => {
   }
 }
 
-// Scores per student: studentId -> coId -> score
-const scores = ref<Record<number, Record<number, string | number>>>({})
-
 const getScore = (studentId: number, coId: number) => {
   return scores.value[studentId]?.[coId] ?? ''
 }
 
-const setScore = (studentId: number, coId: number, value: string) => {
+const setScore = async (studentId: number, coId: number, value: string) => {
   if (!scores.value[studentId]) scores.value[studentId] = {}
   scores.value[studentId][coId] = value
+
+  const enrollmentId = enrollmentMap.value[studentId]
+  if (!enrollmentId || value === '') return
+
+  const parsed = parseFloat(value)
+  if (isNaN(parsed)) return
+
+  await upsertGrade({
+    enrollment_id: enrollmentId,
+    course_outcome_id: coId,
+    score: parsed
+  })
 }
 
-// Compute CO attainment % per student per co_code
-const getCoAttainment = (studentId: number, coCode: string) => {
+// (score / co_score) * co_weight — rounded to whole number
+const getScorePercentage = (studentId: number, co: CourseOutcome): number => {
+  const raw = getScore(studentId, co.id)
+  const score = parseFloat(String(raw))
+  if (isNaN(score) || co.co_score === 0) return 0
+  return Math.round((score / co.co_score) * co.co_weight)
+}
+
+// sum of weighted percentages / total co_weight * 100 — rounded
+const getCoAttainment = (studentId: number, coCode: string): number | null => {
   const outcomes = groupedOutcomes.value[coCode] || []
   if (!outcomes.length) return null
+
   const totalWeight = outcomes.reduce((sum, co) => sum + co.co_weight, 0)
-  const achieved = outcomes.reduce((sum, co) => {
-    const raw = getScore(studentId, co.id)
-    const score = parseFloat(String(raw))
-    if (isNaN(score)) return sum
-    return sum + (score / co.co_score) * co.co_weight
+  if (totalWeight === 0) return null
+
+  const hasAnyScore = outcomes.some(co => getScore(studentId, co.id) !== '')
+  if (!hasAnyScore) return null
+
+  const sumPercentages = outcomes.reduce((sum, co) => {
+    return sum + getScorePercentage(studentId, co)
   }, 0)
-  return totalWeight > 0 ? (achieved / totalWeight) * 100 : null
+
+  return Math.round((sumPercentages / totalWeight) * 100)
+}
+
+// Sum of all getScorePercentage across every CO outcome
+const getFinalWA = (studentId: number): number => {
+  return coKeys.value.reduce((total, coCode) => {
+    const outcomes = groupedOutcomes.value[coCode] || []
+    return total + outcomes.reduce((sum, co) => {
+      return sum + getScorePercentage(studentId, co)
+    }, 0)
+  }, 0)
+}
+
+const getGradeEquivalent = (wa: number): { numerical: number; letter: string } => {
+  if (wa >= 97) return { numerical: 1.0,  letter: 'A'  }
+  if (wa >= 93) return { numerical: 1.25, letter: 'A-' }
+  if (wa >= 89) return { numerical: 1.5,  letter: 'B+' }
+  if (wa >= 85) return { numerical: 1.75, letter: 'B'  }
+  if (wa >= 80) return { numerical: 2.0,  letter: 'B-' }
+  if (wa >= 75) return { numerical: 2.25, letter: 'C+' }
+  if (wa >= 70) return { numerical: 2.5,  letter: 'C'  }
+  if (wa >= 65) return { numerical: 2.75, letter: 'C-' }
+  if (wa >= 60) return { numerical: 3.0,  letter: 'D'  }
+  return         { numerical: 5.0,  letter: 'E'  }
+}
+
+// Only show Final WA / Grade if at least one score has been entered
+const hasFinalWA = (studentId: number): boolean => {
+  return coKeys.value.some(coCode =>
+    (groupedOutcomes.value[coCode] || []).some(co => getScore(studentId, co.id) !== '')
+  )
 }
 
 const isBelowThreshold = (studentId: number) => {
@@ -197,7 +291,8 @@ const handleDeleteStudent = async (student: Student) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  currentUser.value = await getCurrentUser()
   fetchData()
 })
 </script>
@@ -247,7 +342,7 @@ onMounted(() => {
         <div class="overflow-x-auto">
           <table class="min-w-full border-collapse text-sm">
             <thead>
-              <!-- Row 1: CO group headers -->
+              <!-- Row 1: CO group headers + Final WA / Grade -->
               <tr class="bg-white border-b border-gray-200">
                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 sticky left-0 bg-white z-10 min-w-[120px]">
                   Student No.
@@ -263,6 +358,12 @@ onMounted(() => {
                     {{ coCode }}
                   </th>
                 </template>
+                <th class="px-4 py-3 text-center text-sm font-bold text-purple-600 border-r border-gray-200 bg-purple-50 min-w-[100px]">
+                  Final WA
+                </th>
+                <th class="px-4 py-3 text-center text-sm font-bold text-purple-600 bg-purple-50 min-w-[100px]">
+                  Grade
+                </th>
               </tr>
 
               <!-- Row 2: CO descriptions + Attainment label -->
@@ -281,6 +382,8 @@ onMounted(() => {
                     Attainment
                   </th>
                 </template>
+                <th class="border-r border-gray-200 bg-purple-50/40"></th>
+                <th class="bg-purple-50/40"></th>
               </tr>
 
               <!-- Row 3: Score/weight info -->
@@ -299,6 +402,8 @@ onMounted(() => {
                   </th>
                   <th class="border-r border-gray-200"></th>
                 </template>
+                <th class="border-r border-gray-200"></th>
+                <th></th>
               </tr>
             </thead>
 
@@ -317,7 +422,9 @@ onMounted(() => {
                 <td class="px-4 py-3 text-gray-800 border-r border-gray-200 sticky left-[120px] bg-inherit z-10 whitespace-nowrap">
                   {{ student.name }}
                 </td>
+
                 <template v-for="coCode in coKeys" :key="coCode">
+                  <!-- Score input + weighted % per outcome -->
                   <td
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
@@ -328,10 +435,24 @@ onMounted(() => {
                       :min="0"
                       :max="co.co_score"
                       :value="getScore(student.id, co.id)"
-                      @input="setScore(student.id, co.id, ($event.target as HTMLInputElement).value)"
+                      @change="setScore(student.id, co.id, ($event.target as HTMLInputElement).value)"
                       class="w-16 text-center border border-gray-200 rounded px-1 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-gray-50 hover:bg-white transition-colors"
                       placeholder="—"
                     />
+                    <!-- Weighted percentage below input -->
+                    <div class="mt-1 text-[11px]">
+                      <template v-if="getScore(student.id, co.id) !== ''">
+                        <span
+                          :class="[
+                            'font-medium',
+                            getScorePercentage(student.id, co) >= 60 ? 'text-green-600' : 'text-red-500'
+                          ]"
+                        >
+                          {{ getScorePercentage(student.id, co) }}%
+                        </span>
+                      </template>
+                      <span v-else class="text-gray-300">—</span>
+                    </div>
                   </td>
 
                   <!-- Attainment % cell per CO group -->
@@ -345,18 +466,57 @@ onMounted(() => {
                             : 'bg-red-100 text-red-700'
                         ]"
                       >
-                        {{ getCoAttainment(student.id, coCode)!.toFixed(1) }}%
+                        {{ getCoAttainment(student.id, coCode) }}%
                       </span>
                     </template>
                     <span v-else class="text-gray-300 text-xs">—</span>
                   </td>
                 </template>
+
+                <!-- Final WA -->
+                <td class="px-3 py-3 text-center border-r border-gray-200 bg-purple-50/30">
+                  <template v-if="hasFinalWA(student.id)">
+                    <span
+                      :class="[
+                        'inline-block px-2 py-0.5 rounded-full text-xs font-semibold',
+                        getFinalWA(student.id) >= 60
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-red-100 text-red-700'
+                      ]"
+                    >
+                      {{ getFinalWA(student.id) }}%
+                    </span>
+                  </template>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
+
+                <!-- Grade Equivalent -->
+                <td class="px-3 py-3 text-center bg-purple-50/30">
+                  <template v-if="hasFinalWA(student.id)">
+                    <div class="flex flex-col items-center gap-0.5">
+                      <span class="text-sm font-bold text-gray-800">
+                        {{ getGradeEquivalent(getFinalWA(student.id)).numerical }}
+                      </span>
+                      <span
+                        :class="[
+                          'text-xs font-semibold px-2 py-0.5 rounded-full',
+                          getFinalWA(student.id) >= 60
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                        ]"
+                      >
+                        {{ getGradeEquivalent(getFinalWA(student.id)).letter }}
+                      </span>
+                    </div>
+                  </template>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
               </tr>
 
               <!-- Empty state -->
               <tr v-if="students.length === 0">
                 <td
-                  :colspan="2 + courseOutcomes.length + coKeys.length"
+                  :colspan="2 + courseOutcomes.length + coKeys.length + 2"
                   class="px-6 py-12 text-center text-gray-400"
                 >
                   <i class="fas fa-user-graduate text-4xl mb-3 block"></i>
