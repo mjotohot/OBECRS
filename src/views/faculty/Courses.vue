@@ -7,20 +7,36 @@ import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import AppModal from '@/components/commons/AppModal.vue'
 import CourseModal from '@/components/commons/CourseModal.vue'
+import CourseOutcomeModal from '@/components/commons/CourseOutcomeModal.vue'
+import SyllabusUploadModal from '@/components/commons/SyllabusUploadModal.vue'
 import { useCourseStore } from '@/stores/useCourseStore'
-
+import { getCourseOutcomes, updateCourseOutcome, type CourseOutcome } from '@/services/course-outcome.service'
+import { extractCOsFromPDF, insertCourseOutcomes, type ExtractedAssessment } from '@/services/gemini.service'
 
 const router = useRouter()
 const store = useCourseStore()
 const showLogoutConfirm = ref(false)
 const showCourseModal = ref(false)
+const showCOModal = ref(false)
+const showSyllabusModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 const selectedCourse = ref<Course | null>(null)
+const selectedCourseForSyllabus = ref<Course | null>(null)
 const modalLoading = ref(false)
 const courses = ref<Course[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
+
+// CO Modal state
+const selectedCourseForCO = ref<Course | null>(null)
+const courseOutcomes = ref<CourseOutcome[]>([])
+const coSaving = ref(false)
+const coError = ref<string | null>(null)
+
+// Syllabus upload state
+const syllabusUploading = ref(false)
+const syllabusError = ref<string | null>(null)
 
 // Fetch courses from Supabase
 const fetchCourses = async () => {
@@ -77,13 +93,12 @@ const handleCourseSubmit = async (formData: any) => {
   
   try {
     if (modalMode.value === 'add') {
-      // Add new course
       const courseData = {
         adviser_id: currentUser.value.id,
         course_code: formData.course_code.toUpperCase().trim(),
         course_title: formData.course_title.trim(),
         section: formData.section.trim().toUpperCase(),
-        academic_year: formData.academic_year, // Make sure this is the ID
+        academic_year: formData.academic_year,
         status: formData.status
       }
       
@@ -97,7 +112,6 @@ const handleCourseSubmit = async (formData: any) => {
         console.log('Course added successfully')
       }
     } else {
-      // Edit existing course
       if (!selectedCourse.value) return
       
       const updateData = {
@@ -128,6 +142,112 @@ const handleCourseSubmit = async (formData: any) => {
   }
 }
 
+// Open Syllabus Upload Modal
+const openSyllabusModal = (course: Course) => {
+  selectedCourseForSyllabus.value = course
+  syllabusError.value = null
+  showSyllabusModal.value = true
+}
+
+// Handle Syllabus Upload and Extraction
+const handleSyllabusUpload = async (file: File) => {
+  if (!selectedCourseForSyllabus.value) return
+  
+  syllabusUploading.value = true
+  syllabusError.value = null
+  
+  try {
+    // Step 1: Extract COs from PDF using Gemini
+    const extractedData = await extractCOsFromPDF(file)
+    
+    if (!extractedData.assessments || extractedData.assessments.length === 0) {
+      throw new Error('No assessments found in the syllabus')
+    }
+    
+    // Step 2: Insert extracted assessments as course outcomes
+    const result = await insertCourseOutcomes(
+      selectedCourseForSyllabus.value.id,
+      extractedData.assessments
+    )
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to insert course outcomes')
+    }
+    
+    // Step 3: Update course status to 'In Progress'
+    const updateData = {
+ status: 'In Progress' as const
+    }
+    
+    const response = await updateCourse(selectedCourseForSyllabus.value.id, updateData)
+    
+    if (response.error) {
+      throw new Error(response.error)
+    }
+    
+    // Step 4: Update local courses array with new status
+    const index = courses.value.findIndex(c => c.id === selectedCourseForSyllabus.value?.id)
+    if (index !== -1 && response.data) {
+      courses.value[index] = response.data
+    }
+    
+    // Close modal and show success
+    showSyllabusModal.value = false
+    alert(`Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`)
+    
+  } catch (err) {
+    console.error('Error uploading syllabus:', err)
+    syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
+  } finally {
+    syllabusUploading.value = false
+  }
+}
+
+// Open Course Outcomes modal to EDIT CO SCORES
+const openCOModal = async (course: Course) => {
+  selectedCourseForCO.value = course
+  coError.value = null
+  coSaving.value = false
+  
+  try {
+    const response = await getCourseOutcomes(course.id)
+    
+    if (response.error) {
+      coError.value = response.error
+    } else {
+      courseOutcomes.value = response.data || []
+      showCOModal.value = true
+    }
+  } catch (err) {
+    console.error('Error fetching course outcomes:', err)
+    coError.value = 'Failed to load course outcomes'
+  }
+}
+
+// Handle saving edited CO SCORES
+const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
+  coSaving.value = true
+  coError.value = null
+  
+  try {
+    for (const outcome of updatedOutcomes) {
+      const response = await updateCourseOutcome(outcome.id, { co_score: outcome.co_score })
+      if (response.error) {
+        throw new Error(`Failed to update outcome ${outcome.id}`)
+      }
+    }
+    
+    courseOutcomes.value = updatedOutcomes
+    showCOModal.value = false
+    console.log('CO scores saved successfully')
+  } catch (err) {
+    console.error('Error saving course outcomes:', err)
+    coError.value = 'Failed to save course outcomes'
+  } finally {
+    coSaving.value = false
+  }
+}
+
 const handleLogoutConfirm = async () => {
   try {
     await signOut()
@@ -143,16 +263,9 @@ const handleViewClassRecord = (course: Course) => {
   store.setCourse(course)
   router.push('/faculty/class-records')
 }
-const handleUploadSyllabus = (course: Course) => {
-  console.log('Upload syllabus for:', course.course_code)
-  // Open syllabus upload modal or navigate to upload page
-  // router.push(`/courses/${course.id}/upload-syllabus`)
-}
 
 const handleCOReport = (course: Course) => {
   console.log('Generate CO report for:', course.course_code)
-  // Navigate to CO report page or generate report
-  // router.push(`/courses/${course.id}/co-report`)
 }
 
 // Determine which buttons to show based on status
@@ -161,11 +274,11 @@ const shouldShowUploadSyllabus = (status: string) => {
 }
 
 const shouldShowViewClassRecord = (status: string) => {
-  return status !== 'Not Started' // Show for 'In Progress' and 'Completed'
+  return status !== 'Not Started'
 }
 
 const shouldShowCOReport = (status: string) => {
-  return status !== 'Not Started' // Show for 'In Progress' and 'Completed'
+  return status !== 'Not Started'
 }
 
 // Lifecycle
@@ -276,36 +389,49 @@ const getStatusIcon = (status: string) => {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div class="flex items-center space-x-3">
-                    <!-- Show View Class Record for statuses other than 'Not Started' -->
+                    <!-- Upload Syllabus button - only for 'Not Started' -->
+                    <button 
+                      v-if="shouldShowUploadSyllabus(course.status)" 
+                      @click="openSyllabusModal(course)" 
+                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                    >
+                      <i class="fas fa-upload mr-1"></i>
+                      Upload Syllabus
+                    </button>
+                    
+                    <!-- View Class Record button -->
                     <button 
                       v-if="shouldShowViewClassRecord(course.status)"
                       @click="handleViewClassRecord(course)"
                       class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
                     >
+                      <i class="fas fa-book mr-1"></i>
                       View Class Record
                     </button>
                     
-                    <!-- Show Upload Syllabus only for 'Not Started' status -->
+                    <!-- Edit CO Scores button -->
                     <button 
-                      v-if="shouldShowUploadSyllabus(course.status)" 
-                      @click="handleUploadSyllabus(course)" 
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                      @click="openCOModal(course)" 
+                      class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                      title="Edit CO Scores"
                     >
-                      Upload Syllabus
+                      <i class="fas fa-chart-line mr-1"></i>
+                      Edit CO Scores
                     </button>
                     
-                    <!-- Show CO Report for statuses other than 'Not Started' -->
+                    <!-- CO Report button -->
                     <button 
                       v-if="shouldShowCOReport(course.status)"
                       @click="handleCOReport(course)" 
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                      class="text-green-600 hover:text-green-900 transition-colors duration-200"
                     >
+                      <i class="fas fa-file-alt mr-1"></i>
                       CO Report
                     </button>
                     
-                    <!-- Edit button (always visible) -->
-                    <button 
-                      @click="openEditModal(course)" 
+                    <!-- Edit course details button -->
+                    <button
+                      @click="openEditModal(course)"
                       class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
                       title="Edit Course"
                     >
@@ -325,7 +451,7 @@ const getStatusIcon = (status: string) => {
         </div>
       </div>
 
-      <!-- Logout Confirmation Modal -->
+      <!-- Modals -->
       <AppModal
         :isOpen="showLogoutConfirm"
         title="Confirm Logout"
@@ -337,7 +463,6 @@ const getStatusIcon = (status: string) => {
         @cancel="showLogoutConfirm = false"
       />
 
-      <!-- Course Modal (Add/Edit) -->
       <CourseModal
         :isOpen="showCourseModal"
         :mode="modalMode"
@@ -346,6 +471,25 @@ const getStatusIcon = (status: string) => {
         :disableCodeEdit="true"
         @close="showCourseModal = false"
         @submit="handleCourseSubmit"
+      />
+
+      <CourseOutcomeModal
+        :isOpen="showCOModal"
+        :course="selectedCourseForCO"
+        :courseOutcomes="courseOutcomes"
+        :saving="coSaving"
+        :error="coError"
+        @close="showCOModal = false"
+        @save="handleSaveOutcomeScores"
+      />
+
+      <SyllabusUploadModal
+        :isOpen="showSyllabusModal"
+        :course="selectedCourseForSyllabus"
+        :uploading="syllabusUploading"
+        :error="syllabusError"
+        @close="showSyllabusModal = false"
+        @upload="handleSyllabusUpload"
       />
     </div>
   </AdminLayout>
