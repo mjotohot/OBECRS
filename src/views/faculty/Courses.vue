@@ -1,17 +1,44 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { signOut } from '@/services/auth.service'
-import { getCoursesByAdviser, createCourse, updateCourse, type Course } from '@/services/courses.service'
+import {
+  getCoursesByAdviser,
+  createCourse,
+  updateCourse,
+  type Course,
+} from '@/services/courses.service'
 import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import AppModal from '@/components/commons/AppModal.vue'
 import CourseModal from '@/components/commons/CourseModal.vue'
 import CourseOutcomeModal from '@/components/commons/CourseOutcomeModal.vue'
 import SyllabusUploadModal from '@/components/commons/SyllabusUploadModal.vue'
+import Pagination from '@/components/commons/Pagination.vue'
 import { useCourseStore } from '@/stores/useCourseStore'
-import { getCourseOutcomes, updateCourseOutcome, type CourseOutcome } from '@/services/course-outcome.service'
-import { extractCOsFromPDF, insertCourseOutcomes, type ExtractedAssessment } from '@/services/gemini.service'
+import {
+  getCourseOutcomes,
+  updateCourseOutcome,
+  type CourseOutcome,
+} from '@/services/course-outcome.service'
+import {
+  extractCOsFromPDF,
+  insertCourseOutcomes,
+  type ExtractedAssessment,
+} from '@/services/gemini.service'
+// Phosphor icons
+import {
+  PhPlus,
+  PhUpload,
+  PhBookOpen,
+  PhChartLine,
+  PhFileText,
+  PhPencilSimple,
+  PhClock,
+  PhSpinner,
+  PhCheckCircle,
+  PhCircle,
+} from '@phosphor-icons/vue'
 
 const router = useRouter()
 const store = useCourseStore()
@@ -27,6 +54,8 @@ const courses = ref<Course[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
 
 // CO Modal state
 const selectedCourseForCO = ref<Course | null>(null)
@@ -42,19 +71,19 @@ const syllabusError = ref<string | null>(null)
 const fetchCourses = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const userResponse = await getCurrentUser()
-    
+
     if (userResponse.error || !userResponse.data) {
       error.value = 'Unable to load user information'
       loading.value = false
       return
     }
-    
+
     currentUser.value = userResponse.data
     const coursesResponse = await getCoursesByAdviser(+userResponse.data.id)
-    
+
     if (coursesResponse.error) {
       error.value = coursesResponse.error
     } else {
@@ -66,6 +95,15 @@ const fetchCourses = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const paginatedCourses = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return courses.value.slice(start, start + itemsPerPage.value)
+})
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
 }
 
 // Open add course modal
@@ -88,9 +126,9 @@ const handleCourseSubmit = async (formData: any) => {
     error.value = 'User not authenticated'
     return
   }
-  
+
   modalLoading.value = true
-  
+
   try {
     if (modalMode.value === 'add') {
       const courseData = {
@@ -99,11 +137,11 @@ const handleCourseSubmit = async (formData: any) => {
         course_title: formData.course_title.trim(),
         section: formData.section.trim().toUpperCase(),
         academic_year: formData.academic_year,
-        status: formData.status
+        status: formData.status,
       }
-      
+
       const response = await createCourse(courseData, currentUser.value.id)
-      
+
       if (response.error) {
         error.value = response.error
       } else if (response.data) {
@@ -113,20 +151,20 @@ const handleCourseSubmit = async (formData: any) => {
       }
     } else {
       if (!selectedCourse.value) return
-      
+
       const updateData = {
         course_title: formData.course_title.trim(),
         section: formData.section.trim().toUpperCase(),
         academic_year_id: formData.academic_year_id,
-        status: formData.status
+        status: formData.status,
       }
-      
+
       const response = await updateCourse(selectedCourse.value.id, updateData)
-      
+
       if (response.error) {
         error.value = response.error
       } else if (response.data) {
-        const index = courses.value.findIndex(c => c.id === response.data?.id)
+        const index = courses.value.findIndex((c) => c.id === response.data?.id)
         if (index !== -1) {
           courses.value[index] = response.data
         }
@@ -152,49 +190,45 @@ const openSyllabusModal = (course: Course) => {
 // Handle Syllabus Upload and Extraction
 const handleSyllabusUpload = async (file: File) => {
   if (!selectedCourseForSyllabus.value) return
-  
+
   syllabusUploading.value = true
   syllabusError.value = null
-  
+
   try {
-    // Step 1: Extract COs from PDF using Gemini
     const extractedData = await extractCOsFromPDF(file)
-    
+
     if (!extractedData.assessments || extractedData.assessments.length === 0) {
       throw new Error('No assessments found in the syllabus')
     }
-    
-    // Step 2: Insert extracted assessments as course outcomes
+
     const result = await insertCourseOutcomes(
       selectedCourseForSyllabus.value.id,
-      extractedData.assessments
+      extractedData.assessments,
     )
-    
+
     if (!result.success) {
       throw new Error(result.error || 'Failed to insert course outcomes')
     }
-    
-    // Step 3: Update course status to 'In Progress'
+
     const updateData = {
- status: 'In Progress' as const
+      status: 'In Progress' as const,
     }
-    
+
     const response = await updateCourse(selectedCourseForSyllabus.value.id, updateData)
-    
+
     if (response.error) {
       throw new Error(response.error)
     }
-    
-    // Step 4: Update local courses array with new status
-    const index = courses.value.findIndex(c => c.id === selectedCourseForSyllabus.value?.id)
+
+    const index = courses.value.findIndex((c) => c.id === selectedCourseForSyllabus.value?.id)
     if (index !== -1 && response.data) {
       courses.value[index] = response.data
     }
-    
-    // Close modal and show success
+
     showSyllabusModal.value = false
-    alert(`Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`)
-    
+    alert(
+      `Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`,
+    )
   } catch (err) {
     console.error('Error uploading syllabus:', err)
     syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
@@ -208,10 +242,10 @@ const openCOModal = async (course: Course) => {
   selectedCourseForCO.value = course
   coError.value = null
   coSaving.value = false
-  
+
   try {
     const response = await getCourseOutcomes(course.id)
-    
+
     if (response.error) {
       coError.value = response.error
     } else {
@@ -228,7 +262,7 @@ const openCOModal = async (course: Course) => {
 const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
   coSaving.value = true
   coError.value = null
-  
+
   try {
     for (const outcome of updatedOutcomes) {
       const response = await updateCourseOutcome(outcome.id, { co_score: outcome.co_score })
@@ -236,7 +270,7 @@ const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
         throw new Error(`Failed to update outcome ${outcome.id}`)
       }
     }
-    
+
     courseOutcomes.value = updatedOutcomes
     showCOModal.value = false
     console.log('CO scores saved successfully')
@@ -261,7 +295,10 @@ const handleLogoutConfirm = async () => {
 // Action handlers
 const handleViewClassRecord = (course: Course) => {
   store.setCourse(course)
-  router.push('/faculty/class-records')
+  router.push({
+    name: 'ClassRecord',
+    params: { courseId: course.id },
+  })
 }
 
 const handleCOReport = (course: Course) => {
@@ -269,186 +306,245 @@ const handleCOReport = (course: Course) => {
 }
 
 // Determine which buttons to show based on status
-const shouldShowUploadSyllabus = (status: string) => {
-  return status === 'Not Started'
-}
-
-const shouldShowViewClassRecord = (status: string) => {
-  return status !== 'Not Started'
-}
-
-const shouldShowCOReport = (status: string) => {
-  return status !== 'Not Started'
-}
+const shouldShowUploadSyllabus = (status: string) => status === 'Not Started'
+const shouldShowViewClassRecord = (status: string) => status !== 'Not Started'
+const shouldShowCOReport = (status: string) => status !== 'Not Started'
 
 // Lifecycle
 onMounted(() => {
   fetchCourses()
 })
 
-// Get status badge styling
+// Status badge classes (with ring)
 const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'In Progress':
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
     case 'Not Started':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
     case 'Completed':
-      return 'bg-green-100 text-green-800'
+      return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
     default:
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
   }
 }
 
-const getStatusIcon = (status: string) => {
+const getStatusIconComponent = (status: string) => {
   switch (status) {
     case 'In Progress':
-      return 'fas fa-spinner fa-pulse'
+      return PhSpinner
     case 'Not Started':
-      return 'fas fa-clock'
+      return PhClock
     case 'Completed':
-      return 'fas fa-check-circle'
+      return PhCheckCircle
     default:
-      return 'fas fa-circle'
+      return PhCircle
+  }
+}
+
+// Row left border color helper
+const getStatusBorderClass = (status: string) => {
+  switch (status) {
+    case 'In Progress':
+      return 'border-l-amber-400'
+    case 'Completed':
+      return 'border-l-emerald-400'
+    default:
+      return 'border-l-gray-300'
   }
 }
 </script>
 
 <template>
   <AdminLayout>
-    <div class="space-y-6">
-      <!-- Header Section with Add Button -->
-      <div class="flex justify-between items-center">
+    <div class="space-y-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
-          <h2 class="text-3xl font-bold text-gray-900">My Active Courses</h2>
-          <p class="mt-1 text-gray-500">
+          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
+            My Active Courses
+          </h2>
+          <p class="mt-2 text-base text-gray-500 max-w-2xl">
             Manage class records and track course outcome attainment for your courses
           </p>
         </div>
         <button
           @click="openAddModal"
-          class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
         >
-          <i class="fas fa-plus mr-2"></i>
+          <PhPlus :size="18" weight="bold" />
           Add Course
         </button>
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div v-if="loading" class="flex justify-center py-16">
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"
+        ></div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p class="text-red-700">{{ error }}</p>
-        <button @click="fetchCourses" class="mt-2 text-sm text-red-600 hover:text-red-800">
+      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-2xl p-6">
+        <p class="text-red-800 font-medium">{{ error }}</p>
+        <button
+          @click="fetchCourses"
+          class="mt-3 text-sm font-medium text-red-600 hover:text-red-800 underline underline-offset-2"
+        >
           Try Again
         </button>
       </div>
 
       <!-- Courses Table -->
-      <div v-else class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+      <div v-else class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <table class="min-w-full divide-y divide-gray-100">
+            <thead>
+              <tr class="bg-linear-to-b from-gray-50 to-gray-100/50">
+                <th
+                  class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
                   Course Code
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
                   Course Title
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
                   Section
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
                   CO Attainment Status
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                >
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="course in courses" :key="course.id" class="hover:bg-gray-50 transition-colors duration-200">
+            <tbody class="divide-y divide-gray-100">
+              <tr
+                v-for="course in paginatedCourses"
+                :key="course.id"
+                :class="[
+                  'group border-l-4 transition-all duration-150',
+                  getStatusBorderClass(course.status),
+                  'hover:bg-gray-50/80',
+                ]"
+              >
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm font-medium text-gray-900">{{ course.course_code }}</span>
+                  <span class="text-sm font-bold text-gray-900 tracking-tight">
+                    {{ course.course_code }}
+                  </span>
                 </td>
                 <td class="px-6 py-4">
-                  <span class="text-sm text-gray-900">{{ course.course_title }}</span>
+                  <span class="text-sm text-gray-700">{{ course.course_title }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span class="text-sm text-gray-900">{{ course.section }}</span>
+                  <span class="text-sm text-gray-700">{{ course.section }}</span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', getStatusBadgeClass(course.status)]">
-                    <i :class="[getStatusIcon(course.status), 'mr-1.5 text-xs']"></i>
+                  <span
+                    :class="[
+                      'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium leading-5',
+                      getStatusBadgeClass(course.status),
+                    ]"
+                  >
+                    <component
+                      :is="getStatusIconComponent(course.status)"
+                      :size="12"
+                      :class="course.status === 'In Progress' ? 'animate-spin' : ''"
+                      weight="bold"
+                    />
                     {{ course.status }}
                   </span>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div class="flex items-center space-x-3">
-                    <!-- Upload Syllabus button - only for 'Not Started' -->
-                    <button 
-                      v-if="shouldShowUploadSyllabus(course.status)" 
-                      @click="openSyllabusModal(course)" 
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <div class="flex items-center flex-wrap gap-1">
+                    <!-- Upload Syllabus -->
+                    <button
+                      v-if="shouldShowUploadSyllabus(course.status)"
+                      @click="openSyllabusModal(course)"
+                      class="inline-flex items-center cursor-pointer gap-1.5 px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
                     >
-                      <i class="fas fa-upload mr-1"></i>
+                      <PhUpload :size="14" weight="bold" />
                       Upload Syllabus
                     </button>
-                    
-                    <!-- View Class Record button -->
-                    <button 
+
+                    <!-- View Class Record -->
+                    <button
                       v-if="shouldShowViewClassRecord(course.status)"
                       @click="handleViewClassRecord(course)"
-                      class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200"
+                      class="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
                     >
-                      <i class="fas fa-book mr-1"></i>
+                      <PhBookOpen :size="14" weight="bold" />
                       View Class Record
                     </button>
-                    
-                    <!-- Edit CO Scores button -->
-                    <button 
-                      @click="openCOModal(course)" 
-                      class="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+
+                    <!-- Edit CO Scores -->
+                    <button
+                      @click="openCOModal(course)"
+                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
                       title="Edit CO Scores"
                     >
-                      <i class="fas fa-chart-line mr-1"></i>
+                      <PhChartLine :size="14" weight="bold" />
                       Edit CO Scores
                     </button>
-                    
-                    <!-- CO Report button -->
-                    <button 
+
+                    <!-- CO Report -->
+                    <button
                       v-if="shouldShowCOReport(course.status)"
-                      @click="handleCOReport(course)" 
-                      class="text-green-600 hover:text-green-900 transition-colors duration-200"
+                      @click="handleCOReport(course)"
+                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
                     >
-                      <i class="fas fa-file-alt mr-1"></i>
+                      <PhFileText :size="14" weight="bold" />
                       CO Report
                     </button>
-                    
-                    <!-- Edit course details button -->
+
+                    <!-- Edit Course -->
                     <button
                       @click="openEditModal(course)"
-                      class="text-yellow-600 hover:text-yellow-900 transition-colors duration-200"
+                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
                       title="Edit Course"
                     >
-                      <i class="fas fa-edit"></i>
+                      <PhPencilSimple :size="14" weight="bold" />
+                      Edit Course
                     </button>
                   </div>
                 </td>
               </tr>
+
+              <!-- Empty State -->
               <tr v-if="courses.length === 0">
-                <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                  <i class="fas fa-book-open text-4xl mb-3 block"></i>
-                  No courses found. Click "Add Course" to get started.
+                <td colspan="5" class="px-6 py-20">
+                  <div class="flex flex-col items-center justify-center text-center">
+                    <div
+                      class="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4"
+                    >
+                      <PhBookOpen :size="28" weight="bold" class="text-gray-400" />
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">No courses yet</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                      Get started by adding your first course.
+                    </p>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <Pagination
+          :currentPage="currentPage"
+          :totalItems="courses.length"
+          :itemsPerPage="itemsPerPage"
+          :alwaysShow="true"
+          @page-change="handlePageChange"
+        />
       </div>
 
       <!-- Modals -->
@@ -496,25 +592,8 @@ const getStatusIcon = (status: string) => {
 </template>
 
 <style scoped>
-.hover\:bg-gray-50:hover {
-  background-color: #f9fafb;
-}
-
 button:focus-visible {
   outline: 2px solid #4f46e5;
   outline-offset: 2px;
-}
-
-.fa-spinner {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 </style>

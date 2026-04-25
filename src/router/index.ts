@@ -5,10 +5,10 @@ import Login from '@/views/auth/Login.vue'
 import Register from '@/views/auth/Register.vue'
 import ForgotPassword from '@/views/auth/ForgotPassword.vue'
 import ResetPassword from '@/views/auth/ResetPassword.vue'
-import FacultyDashboard from '@/views/faculty/Dashboard.vue'
 import Students from '@/views/faculty/Students.vue'
 import Courses from '@/views/faculty/Courses.vue'
 import ClassRecords from '@/views/faculty/Students-Records.vue'
+import StudentRecord from '@/views/faculty/ClassRecord.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -17,7 +17,13 @@ const routes = [
   { path: '/reset-password', component: ResetPassword },
   { path: '/faculty/courses', component: Courses, meta: { requiresFaculty: true } },
   { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } },
-  { path: '/faculty/class-records', component: ClassRecords, meta: { requiresFaculty: true } },
+  {
+    path: '/faculty/courses/:courseId/class-record',
+    name: 'ClassRecord',
+    component: ClassRecords,
+    meta: { requiresFaculty: true },
+  },
+  { path: '/faculty/records', component: StudentRecord, meta: { requiresFaculty: true } },
 ]
 
 const router = createRouter({

@@ -1,115 +1,168 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop -->
-    <div class="absolute inset-0 backdrop-blur-xs bg-black bg-opacity-50" @click="handleClose"></div>
-    
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="handleClose"></div>
+
     <!-- Modal Content -->
-    <div class="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 p-6 max-h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold text-gray-900">
-          <i class="fas fa-edit mr-2"></i>
-          Edit Course Outcome Max Scores - {{ course?.course_code }}: {{ course?.course_title }}
+    <div
+      class="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <PhPencil :size="22" weight="bold" class="text-indigo-600" />
+          Edit Course Outcome Max Scores – {{ course?.course_code }}: {{ course?.course_title }}
         </h3>
-        <button 
+        <button
           @click="handleClose"
-          class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+          class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
         >
-          ×
+          <PhX :size="20" weight="bold" />
         </button>
       </div>
-      
-      <div class="mb-4">
-        <p class="text-sm text-gray-600" v-if="course">
-          <span class="font-semibold">Section:</span> {{ course.section }} | 
-          <span class="font-semibold">Status:</span> 
-          <span :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', getStatusBadgeClass(course.status)]">
-            <i :class="[getStatusIcon(course.status), 'mr-1 text-xs']"></i>
-            {{ course.status }}
+
+      <!-- Course Info Bar -->
+      <div class="px-6 py-3 bg-gray-50/80 border-b border-gray-100">
+        <p class="text-sm text-gray-600 flex items-center flex-wrap gap-x-4 gap-y-1" v-if="course">
+          <span> <span class="font-semibold">Section:</span> {{ course.section }} </span>
+          <span class="flex items-center gap-1.5">
+            <span class="font-semibold">Status:</span>
+            <span
+              :class="[
+                'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium',
+                getStatusBadgeClass(course.status),
+              ]"
+            >
+              <component
+                :is="getStatusIconComponent(course.status)"
+                :size="12"
+                :class="course.status === 'In Progress' ? 'animate-spin' : ''"
+                weight="bold"
+              />
+              {{ course.status }}
+            </span>
           </span>
         </p>
       </div>
-      
-      <div v-if="error" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+
+      <!-- Error Alert -->
+      <div
+        v-if="error"
+        class="mx-6 mt-4 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2"
+      >
+        <PhWarningCircle :size="18" weight="bold" class="text-red-500 shrink-0" />
         <p class="text-sm text-red-700">{{ error }}</p>
       </div>
 
-      <div class="overflow-x-auto max-h-[60vh]">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50 sticky top-0">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                Course Outcome
+      <!-- Scrollable Table Area -->
+      <div class="overflow-x-auto flex-1 px-6 py-4">
+        <table class="min-w-full divide-y divide-gray-100">
+          <thead class="sticky top-0 z-10">
+            <tr class="bg-linear-to-b from-gray-50 to-gray-100/50">
+              <th
+                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"
+              >
+                Outcome
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
+              >
                 Description
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                Current Max Score
+              <th
+                class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-32"
+              >
+                Current Max
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                Weight (%)
+              <th
+                class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-24"
+              >
+                Weight
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              <th
+                class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-36"
+              >
                 Edit Max Score
               </th>
             </tr>
           </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
+          <tbody class="divide-y divide-gray-100">
             <template v-for="coCode in coKeys" :key="coCode">
-              <tr class="bg-indigo-50">
-                <td colspan="5" class="px-4 py-2 text-sm font-semibold text-indigo-700">
+              <!-- Group Header -->
+              <tr class="bg-indigo-50/70 border-l-4 border-indigo-400">
+                <td colspan="5" class="px-4 py-2 text-sm font-semibold text-indigo-800">
                   {{ coCode }}
                 </td>
               </tr>
-              <tr v-for="co in groupedOutcomes[coCode]" :key="co.id" class="hover:bg-gray-50">
-                <td class="px-4 py-3 text-sm text-gray-900 align-top">
+              <!-- Outcome Rows -->
+              <tr
+                v-for="co in groupedOutcomes[coCode]"
+                :key="co.id"
+                class="hover:bg-gray-50/80 transition-colors"
+              >
+                <td class="px-4 py-3 text-sm font-medium text-gray-900 align-top">
                   {{ co.co_code }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 align-top">
                   {{ co.co_description }}
                 </td>
-                <td class="px-4 py-3 text-sm text-gray-600 text-center align-top font-semibold">
-                  {{ co.co_score || 'Not set' }}
+                <td class="px-4 py-3 text-sm text-gray-900 text-center align-top font-semibold">
+                  {{ co.co_score ?? '—' }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 text-center align-top">
                   {{ co.co_weight }}%
                 </td>
                 <td class="px-4 py-3 text-center align-top">
-                  <input
-                    type="number"
-                    :value="formScores[co.id]"
-                    @input="(e) => handleScoreChange(co.id, (e.target as HTMLInputElement).value)"
-                    :class="[
-                      'w-28 px-2 py-1 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                      validationErrors[co.id] ? 'border-red-500' : 'border-gray-300'
-                    ]"
-                    step="1"
-                    :disabled="saving"
-                    placeholder="Enter max score"
-                  />
-                  <p v-if="validationErrors[co.id]" class="text-xs text-red-500 mt-1">
-                    {{ validationErrors[co.id] }}
-                  </p>
+                  <div class="flex flex-col items-center">
+                    <input
+                      type="number"
+                      :value="formScores[co.id]"
+                      @input="(e) => handleScoreChange(co.id, (e.target as HTMLInputElement).value)"
+                      :class="[
+                        'w-28 px-3 py-2 text-center border rounded-lg focus:outline-none focus:ring-2 transition-colors',
+                        validationErrors[co.id]
+                          ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                          : 'border-gray-300 focus:ring-indigo-500/20 focus:border-indigo-500',
+                      ]"
+                      step="1"
+                      :disabled="saving"
+                      placeholder="Max score"
+                    />
+                    <p
+                      v-if="validationErrors[co.id]"
+                      class="text-xs text-red-500 mt-1 w-28 text-left"
+                    >
+                      {{ validationErrors[co.id] }}
+                    </p>
+                  </div>
                 </td>
               </tr>
             </template>
-            
+
+            <!-- Empty State -->
             <tr v-if="courseOutcomes.length === 0">
-              <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                <i class="fas fa-info-circle text-4xl mb-3 block"></i>
-                No course outcomes found for this course.
+              <td colspan="5" class="px-6 py-16">
+                <div class="flex flex-col items-center justify-center text-center">
+                  <div
+                    class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                  >
+                    <PhInfo :size="24" weight="bold" class="text-gray-400" />
+                  </div>
+                  <p class="text-sm text-gray-500">No course outcomes found for this course.</p>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      
-      <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+
+      <!-- Footer Actions -->
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
         <button
           type="button"
           @click="handleClose"
           :disabled="saving"
-          class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
+          class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
@@ -117,12 +170,9 @@
           type="button"
           @click="handleSubmit"
           :disabled="saving || courseOutcomes.length === 0"
-          :class="[
-            'px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50',
-            'bg-indigo-600 hover:bg-indigo-700'
-          ]"
+          class="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          <i v-if="saving" class="fas fa-spinner fa-pulse mr-2"></i>
+          <PhSpinner v-if="saving" :size="18" class="animate-spin" />
           {{ saving ? 'Saving...' : 'Update Max Scores' }}
         </button>
       </div>
@@ -132,6 +182,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import {
+  PhPencil,
+  PhX,
+  PhSpinner,
+  PhWarningCircle,
+  PhInfo,
+  PhClock,
+  PhCheckCircle,
+  PhCircle,
+} from '@phosphor-icons/vue'
 
 interface Course {
   id: number
@@ -145,7 +205,7 @@ interface CourseOutcome {
   id: number
   co_code: string
   co_description: string
-  co_score: number | null  // This is the MAX SCORE, can be null
+  co_score: number | null // This is the MAX SCORE, can be null
   co_weight: number
   course_id: number
   created_at: string
@@ -185,25 +245,32 @@ const coKeys = computed(() => Object.keys(groupedOutcomes.value))
 // Reset form with current scores
 const resetForm = () => {
   formScores.value = {}
-  props.courseOutcomes.forEach(co => {
+  props.courseOutcomes.forEach((co) => {
     formScores.value[co.id] = co.co_score || ''
   })
   validationErrors.value = {}
 }
 
 // Watch for modal open
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    resetForm()
-  }
-})
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      resetForm()
+    }
+  },
+)
 
 // Watch for courseOutcomes changes
-watch(() => props.courseOutcomes, () => {
-  if (props.isOpen) {
-    resetForm()
-  }
-}, { deep: true })
+watch(
+  () => props.courseOutcomes,
+  () => {
+    if (props.isOpen) {
+      resetForm()
+    }
+  },
+  { deep: true },
+)
 
 const validateScore = (co: CourseOutcome, value: string | number | undefined): boolean => {
   if (value === '' || value === null || value === undefined) {
@@ -227,7 +294,7 @@ const validateScore = (co: CourseOutcome, value: string | number | undefined): b
 }
 
 const handleScoreChange = (coId: number, value: string) => {
-  const co = props.courseOutcomes.find(c => c.id === coId)
+  const co = props.courseOutcomes.find((c) => c.id === coId)
   if (co) {
     validateScore(co, value)
   }
@@ -253,21 +320,21 @@ const handleSubmit = () => {
       isValid = false
     }
   }
-  
+
   if (!isValid) return
-  
+
   if (!hasChanges.value) {
     // No changes, just close
     handleClose()
     return
   }
-  
+
   // Create updated outcomes array with new max scores
-  const updatedOutcomes = props.courseOutcomes.map(co => ({
+  const updatedOutcomes = props.courseOutcomes.map((co) => ({
     ...co,
-    co_score: formScores.value[co.id] ? parseFloat(String(formScores.value[co.id])) : null
+    co_score: formScores.value[co.id] ? parseFloat(String(formScores.value[co.id])) : null,
   }))
-  
+
   emit('save', updatedOutcomes)
 }
 
@@ -281,26 +348,26 @@ const handleClose = () => {
 const getStatusBadgeClass = (status: string) => {
   switch (status) {
     case 'In Progress':
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
     case 'Not Started':
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
     case 'Completed':
-      return 'bg-green-100 text-green-800'
+      return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
     default:
-      return 'bg-gray-100 text-gray-800'
+      return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
   }
 }
 
-const getStatusIcon = (status: string) => {
+const getStatusIconComponent = (status: string) => {
   switch (status) {
     case 'In Progress':
-      return 'fas fa-spinner fa-pulse'
+      return PhSpinner
     case 'Not Started':
-      return 'fas fa-clock'
+      return PhClock
     case 'Completed':
-      return 'fas fa-check-circle'
+      return PhCheckCircle
     default:
-      return 'fas fa-circle'
+      return PhCircle
   }
 }
 </script>

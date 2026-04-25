@@ -2,7 +2,13 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { signOut } from '@/services/auth.service'
-import { createStudent, updateStudent, getStudentsByCourse, getEnrollmentsByCourse } from '@/services/student.service'
+import {
+  createStudent,
+  updateStudent,
+  getStudentsByCourse,
+  getEnrollmentsByCourse,
+} from '@/services/student.service'
+import Pagination from '@/components/commons/Pagination.vue'
 import { getCourseOutcomeByCourse } from '@/services/courses.service'
 import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
@@ -39,6 +45,8 @@ const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
 const store = useCourseStore()
 const course = store.selectedCourse
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
 
 // Grade modal specific refs
 const selectedStudentForGrade = ref<Student | null>(null)
@@ -66,7 +74,7 @@ const coKeys = computed(() => Object.keys(groupedOutcomes.value))
 
 // Get students without any grades
 const studentsWithoutGrades = computed(() => {
-  return students.value.filter(student => {
+  return students.value.filter((student) => {
     const studentScores = scores.value[student.id]
     if (!studentScores) return true
     return Object.keys(studentScores).length === 0
@@ -91,7 +99,7 @@ const fetchData = async () => {
     const [outcomesRes, studentsRes, enrollmentsRes] = await Promise.all([
       getCourseOutcomeByCourse(+course.id),
       getStudentsByCourse(+course.id),
-      getEnrollmentsByCourse(+course.id)
+      getEnrollmentsByCourse(+course.id),
     ])
 
     if (outcomesRes.error) error.value = outcomesRes.error
@@ -161,7 +169,7 @@ const getCoAttainment = (studentId: number, coCode: string): number | null => {
   const totalWeight = outcomes.reduce((sum, co) => sum + co.co_weight, 0)
   if (totalWeight === 0) return null
 
-  const hasAnyScore = outcomes.some(co => getScore(studentId, co.id) !== '')
+  const hasAnyScore = outcomes.some((co) => getScore(studentId, co.id) !== '')
   if (!hasAnyScore) return null
 
   const sumPercentages = outcomes.reduce((sum, co) => {
@@ -174,33 +182,36 @@ const getCoAttainment = (studentId: number, coCode: string): number | null => {
 const getFinalWA = (studentId: number): number => {
   return coKeys.value.reduce((total, coCode) => {
     const outcomes = groupedOutcomes.value[coCode] || []
-    return total + outcomes.reduce((sum, co) => {
-      return sum + getScorePercentage(studentId, co)
-    }, 0)
+    return (
+      total +
+      outcomes.reduce((sum, co) => {
+        return sum + getScorePercentage(studentId, co)
+      }, 0)
+    )
   }, 0)
 }
 
 const getGradeEquivalent = (wa: number): { numerical: number; letter: string } => {
-  if (wa >= 97) return { numerical: 1.0,  letter: 'A'  }
+  if (wa >= 97) return { numerical: 1.0, letter: 'A' }
   if (wa >= 93) return { numerical: 1.25, letter: 'A-' }
-  if (wa >= 89) return { numerical: 1.5,  letter: 'B+' }
-  if (wa >= 85) return { numerical: 1.75, letter: 'B'  }
-  if (wa >= 80) return { numerical: 2.0,  letter: 'B-' }
+  if (wa >= 89) return { numerical: 1.5, letter: 'B+' }
+  if (wa >= 85) return { numerical: 1.75, letter: 'B' }
+  if (wa >= 80) return { numerical: 2.0, letter: 'B-' }
   if (wa >= 75) return { numerical: 2.25, letter: 'C+' }
-  if (wa >= 70) return { numerical: 2.5,  letter: 'C'  }
+  if (wa >= 70) return { numerical: 2.5, letter: 'C' }
   if (wa >= 65) return { numerical: 2.75, letter: 'C-' }
-  if (wa >= 60) return { numerical: 3.0,  letter: 'D'  }
-  return         { numerical: 5.0,  letter: 'E'  }
+  if (wa >= 60) return { numerical: 3.0, letter: 'D' }
+  return { numerical: 5.0, letter: 'E' }
 }
 
 const hasFinalWA = (studentId: number): boolean => {
-  return coKeys.value.some(coCode =>
-    (groupedOutcomes.value[coCode] || []).some(co => getScore(studentId, co.id) !== '')
+  return coKeys.value.some((coCode) =>
+    (groupedOutcomes.value[coCode] || []).some((co) => getScore(studentId, co.id) !== ''),
   )
 }
 
 const isBelowThreshold = (studentId: number) => {
-  return coKeys.value.some(coCode => {
+  return coKeys.value.some((coCode) => {
     const attainment = getCoAttainment(studentId, coCode)
     return attainment !== null && attainment < 60
   })
@@ -228,10 +239,10 @@ const openGradeModalForStudentWithoutGrades = () => {
 // Handle grade submission
 const handleGradeSubmit = async (scores: Record<number, string | number>) => {
   if (!selectedStudentForGrade.value || !course) return
-  
+
   savingGrade.value = true
   gradeModalError.value = null
-  
+
   try {
     const enrollmentId = enrollmentMap.value[selectedStudentForGrade.value.id]
     if (!enrollmentId) {
@@ -249,7 +260,7 @@ const handleGradeSubmit = async (scores: Record<number, string | number>) => {
         if (!isNaN(scoreNum)) {
           gradesToSave.push({
             course_outcome_id: co.id,
-            score: scoreNum
+            score: scoreNum,
           })
         }
       }
@@ -263,7 +274,7 @@ const handleGradeSubmit = async (scores: Record<number, string | number>) => {
 
     const result = await bulkUpsertGrades({
       enrollment_id: enrollmentId,
-      grades: gradesToSave
+      grades: gradesToSave,
     })
 
     if (result.error) {
@@ -328,7 +339,7 @@ const handleStudentSubmit = async (formData: any) => {
       const studentData = {
         adviser_id: currentUser.value.id,
         id_number: formData.id_number.trim(),
-        name: formData.name.trim()
+        name: formData.name.trim(),
       }
       const response = await createStudent(studentData, currentUser.value.id)
       if (response.error) {
@@ -343,13 +354,13 @@ const handleStudentSubmit = async (formData: any) => {
       const updateData = {
         adviser_id: currentUser.value.id,
         id_number: formData.id_number.trim(),
-        name: formData.name.trim()
+        name: formData.name.trim(),
       }
       const response = await updateStudent(selectedStudent.value.id, updateData)
       if (response.error) {
         error.value = response.error
       } else if (response.data) {
-        const index = students.value.findIndex(s => s.id === response.data?.id)
+        const index = students.value.findIndex((s) => s.id === response.data?.id)
         if (index !== -1) students.value[index] = response.data
         showStudentModal.value = false
       }
@@ -371,6 +382,15 @@ const handleLogoutConfirm = async () => {
   }
 }
 
+const paginatedStudents = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return students.value.slice(start, start + itemsPerPage.value)
+})
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+}
+
 onMounted(async () => {
   currentUser.value = await getCurrentUser()
   fetchData()
@@ -383,23 +403,25 @@ onMounted(async () => {
       <!-- Header -->
       <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-3xl font-bold text-gray-900">Class Record</h2>
+          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
+            My Class Record
+          </h2>
           <p class="mt-1 text-gray-500" v-if="course">
             {{ course.course_code }} - {{ course.course_title }}
           </p>
         </div>
-        
+
         <!-- Dropdown and Input Grade Button -->
         <div class="flex items-center gap-3">
           <!-- Dropdown for students without grades -->
           <div class="relative" v-if="studentsWithoutGrades.length > 0">
-            <select 
+            <select
               @change="openGradeModalForStudentWithoutGrades"
               class="appearance-none px-4 py-2 pr-10 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="" disabled selected>Select student without grades</option>
-              <option 
-                v-for="student in studentsWithoutGrades" 
+              <option
+                v-for="student in studentsWithoutGrades"
                 :key="student.id"
                 :value="student.id"
               >
@@ -410,7 +432,7 @@ onMounted(async () => {
               <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
             </div>
           </div>
-          
+
           <!-- Input Grade Button -->
           <button
             @click="openGradeModalForStudentWithoutGrades"
@@ -424,7 +446,9 @@ onMounted(async () => {
 
       <!-- Loading -->
       <div v-if="loading" class="flex justify-center py-12">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"
+        ></div>
       </div>
 
       <!-- Error -->
@@ -436,25 +460,33 @@ onMounted(async () => {
       </div>
 
       <!-- Table -->
-      <div v-else class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+      <div v-else class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
           <h3 class="text-lg font-semibold text-gray-800">Student Scores</h3>
           <p class="text-sm text-gray-500 mt-0.5">
-            View scores for each assessment. Students with CO attainment below 60% are highlighted in red.
+            View scores for each assessment. Students with CO attainment below 60% are highlighted
+            in red.
           </p>
         </div>
 
         <div class="overflow-x-auto">
           <table class="min-w-full border-collapse text-sm">
             <thead>
+              <!-- CO Group Header -->
               <tr class="bg-white border-b border-gray-200">
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 sticky left-0 bg-white z-10 min-w-[120px]">
+                <th
+                  class="sticky left-0 z-5 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 min-w-30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                >
                   Student No.
                 </th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 sticky left-[120px] bg-white z-10 min-w-[160px]">
+                <th
+                  class="sticky left-30 z-5 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 min-w-40 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                >
                   Name
                 </th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider sticky left-[280px] bg-white z-10 min-w-[100px]">
+                <th
+                  class="sticky left-30 z-5 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 min-w-25 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                >
                   Actions
                 </th>
                 <template v-for="coCode in coKeys" :key="coCode">
@@ -465,27 +497,40 @@ onMounted(async () => {
                     {{ coCode }}
                   </th>
                 </template>
-                <th class="px-4 py-3 text-center text-sm font-bold text-purple-600 border-r border-gray-200 bg-purple-50 min-w-[100px]">
+                <th
+                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 border-r border-gray-200 bg-purple-50 min-w-25"
+                >
                   Final WA
                 </th>
-                <th class="px-4 py-3 text-center text-sm font-bold text-purple-600 bg-purple-50 min-w-[100px]">
+                <th
+                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 bg-purple-50 min-w-25"
+                >
                   Grade
                 </th>
               </tr>
 
+              <!-- Course Outcome Description Header -->
               <tr class="bg-indigo-50/40 border-b border-gray-200">
-                <th class="sticky left-0 bg-white z-10 border-r border-gray-200"></th>
-                <th class="sticky left-[120px] bg-white z-10 border-r border-gray-200"></th>
-                <th class="sticky left-[280px] bg-white z-10 border-r border-gray-200"></th>
+                <th
+                  class="sticky left-0 z-5 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
+                <th
+                  class="sticky left-60 z-5 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
+                <th
+                  class="sticky left-70 z-5 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
                 <template v-for="coCode in coKeys" :key="coCode">
                   <th
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
-                    class="px-3 py-2 text-center text-[11px] text-gray-500 font-normal border-r border-gray-100 max-w-[140px]"
+                    class="px-3 py-2 text-center text-[11px] text-gray-500 font-normal border-r border-gray-100 max-w-35"
                   >
                     <span class="line-clamp-2 block leading-tight">{{ co.co_description }}</span>
                   </th>
-                  <th class="px-3 py-2 text-center text-[11px] font-semibold text-indigo-600 border-r border-gray-200 min-w-[90px]">
+                  <th
+                    class="px-3 py-2 text-center text-[11px] font-semibold text-indigo-600 border-r border-gray-200 min-w-22.5"
+                  >
                     Attainment
                   </th>
                 </template>
@@ -493,10 +538,17 @@ onMounted(async () => {
                 <th class="bg-purple-50/40"></th>
               </tr>
 
+              <!-- Weights/Max Scores Header -->
               <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="sticky left-0 bg-gray-50 z-10 border-r border-gray-200"></th>
-                <th class="sticky left-[120px] bg-gray-50 z-10 border-r border-gray-200"></th>
-                <th class="sticky left-[280px] bg-gray-50 z-10 border-r border-gray-200"></th>
+                <th
+                  class="sticky left-0 z-5 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
+                <th
+                  class="sticky left-30 z-5 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
+                <th
+                  class="sticky left-70 z-5 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                ></th>
                 <template v-for="coCode in coKeys" :key="coCode">
                   <th
                     v-for="co in groupedOutcomes[coCode]"
@@ -519,25 +571,50 @@ onMounted(async () => {
                 v-for="student in students"
                 :key="student.id"
                 :class="[
-                  'hover:bg-gray-50 transition-colors duration-150',
-                  isBelowThreshold(student.id) ? 'bg-red-50 hover:bg-red-100' : ''
+                  'group transition-colors duration-150',
+                  isBelowThreshold(student.id) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50',
                 ]"
               >
-                <td class="px-4 py-3 font-semibold text-gray-900 border-r border-gray-200 sticky left-0 bg-inherit z-10">
+                <!-- Student No. -->
+                <td
+                  class="sticky left-0 z-1 px-4 py-3 font-semibold text-gray-900 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  :class="
+                    isBelowThreshold(student.id)
+                      ? 'bg-red-50 group-hover:bg-red-100'
+                      : 'bg-white group-hover:bg-gray-50'
+                  "
+                >
                   {{ student.id_number }}
-                 </td>
-                <td class="px-4 py-3 text-gray-800 border-r border-gray-200 sticky left-[120px] bg-inherit z-10 whitespace-nowrap">
+                </td>
+                <!-- Name -->
+                <td
+                  class="sticky left-30 z-1 px-4 py-3 text-gray-800 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap"
+                  :class="
+                    isBelowThreshold(student.id)
+                      ? 'bg-red-50 group-hover:bg-red-100'
+                      : 'bg-white group-hover:bg-gray-50'
+                  "
+                >
                   {{ student.name }}
-                 </td>
-                <td class="px-4 py-3 text-center border-r border-gray-200 sticky left-[280px] bg-inherit z-10">
+                </td>
+                <!-- Actions -->
+                <td
+                  class="sticky left-70 z-1 px-4 py-3 text-center border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  :class="
+                    isBelowThreshold(student.id)
+                      ? 'bg-red-50 group-hover:bg-red-100'
+                      : 'bg-white group-hover:bg-gray-50'
+                  "
+                >
                   <button
                     @click="openGradeModal(student)"
                     class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                   >
                     <i class="fas fa-edit mr-1"></i> Edit Grades
                   </button>
-                 </td>
+                </td>
 
+                <!-- Dynamic CO columns -->
                 <template v-for="coCode in coKeys" :key="coCode">
                   <td
                     v-for="co in groupedOutcomes[coCode]"
@@ -552,7 +629,9 @@ onMounted(async () => {
                         <span
                           :class="[
                             'font-medium',
-                            getScorePercentage(student.id, co) >= 60 ? 'text-green-600' : 'text-red-500'
+                            getScorePercentage(student.id, co) >= 60
+                              ? 'text-green-600'
+                              : 'text-red-500',
                           ]"
                         >
                           {{ getScorePercentage(student.id, co) }}%
@@ -560,8 +639,9 @@ onMounted(async () => {
                       </template>
                       <span v-else class="text-gray-300">—</span>
                     </div>
-                   </td>
+                  </td>
 
+                  <!-- Attainment -->
                   <td class="px-3 py-3 text-center border-r border-gray-200">
                     <template v-if="getCoAttainment(student.id, coCode) !== null">
                       <span
@@ -569,16 +649,17 @@ onMounted(async () => {
                           'inline-block px-2 py-0.5 rounded-full text-xs font-semibold',
                           getCoAttainment(student.id, coCode)! >= 60
                             ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                            : 'bg-red-100 text-red-700',
                         ]"
                       >
                         {{ getCoAttainment(student.id, coCode) }}%
                       </span>
                     </template>
                     <span v-else class="text-gray-300 text-xs">—</span>
-                   </td>
+                  </td>
                 </template>
 
+                <!-- Final WA -->
                 <td class="px-3 py-3 text-center border-r border-gray-200 bg-purple-50/30">
                   <template v-if="hasFinalWA(student.id)">
                     <span
@@ -586,7 +667,7 @@ onMounted(async () => {
                         'inline-block px-2 py-0.5 rounded-full text-xs font-semibold',
                         getFinalWA(student.id) >= 60
                           ? 'bg-purple-100 text-purple-700'
-                          : 'bg-red-100 text-red-700'
+                          : 'bg-red-100 text-red-700',
                       ]"
                     >
                       {{ getFinalWA(student.id) }}%
@@ -595,6 +676,7 @@ onMounted(async () => {
                   <span v-else class="text-gray-300 text-xs">—</span>
                 </td>
 
+                <!-- Grade -->
                 <td class="px-3 py-3 text-center bg-purple-50/30">
                   <template v-if="hasFinalWA(student.id)">
                     <div class="flex flex-col items-center gap-0.5">
@@ -606,7 +688,7 @@ onMounted(async () => {
                           'text-xs font-semibold px-2 py-0.5 rounded-full',
                           getFinalWA(student.id) >= 60
                             ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
+                            : 'bg-red-100 text-red-700',
                         ]"
                       >
                         {{ getGradeEquivalent(getFinalWA(student.id)).letter }}
@@ -617,21 +699,38 @@ onMounted(async () => {
                 </td>
               </tr>
 
+              <!-- Empty State -->
               <tr v-if="students.length === 0">
                 <td
                   :colspan="3 + courseOutcomes.length + coKeys.length + 2"
-                  class="px-6 py-12 text-center text-gray-400"
+                  class="px-6 py-16 text-center"
                 >
-                  <i class="fas fa-user-graduate text-4xl mb-3 block"></i>
-                  No students found.
+                  <div class="flex flex-col items-center justify-center text-gray-400">
+                    <div
+                      class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"
+                    >
+                      <i class="fas fa-user-graduate text-xl text-gray-400"></i>
+                    </div>
+                    <p class="text-sm font-medium text-gray-500">No students found.</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                      Enroll students to start recording grades.
+                    </p>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <Pagination
+          :currentPage="currentPage"
+          :totalItems="students.length"
+          :itemsPerPage="itemsPerPage"
+          :alwaysShow="true"
+          @page-change="handlePageChange"
+        />
       </div>
 
-      <!-- Modals -->
+      <!-- Modals (unchanged) -->
       <AppModal
         :isOpen="showLogoutConfirm"
         title="Confirm Logout"
@@ -642,7 +741,6 @@ onMounted(async () => {
         @confirm="handleLogoutConfirm"
         @cancel="showLogoutConfirm = false"
       />
-
       <StudentModal
         :isOpen="showStudentModal"
         :mode="modalMode"
@@ -651,19 +749,19 @@ onMounted(async () => {
         @close="showStudentModal = false"
         @submit="handleStudentSubmit"
       />
-
       <EnrollmentModal
         :isOpen="showEnrollmentModal"
         :student="selectedStudent"
         @close="closeEnrollmentModal"
         @success="handleEnrollmentSuccess"
       />
-
       <GradeModal
         :isOpen="showGradeModal"
         :student="selectedStudentForGrade"
         :courseOutcomes="courseOutcomes"
-        :existingScores="selectedStudentForGrade ? getExistingScoresForStudent(selectedStudentForGrade.id) : {}"
+        :existingScores="
+          selectedStudentForGrade ? getExistingScoresForStudent(selectedStudentForGrade.id) : {}
+        "
         :saving="savingGrade"
         :error="gradeModalError"
         @close="closeGradeModal"

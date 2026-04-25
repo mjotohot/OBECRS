@@ -2,34 +2,39 @@
 <template>
   <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
     <!-- Backdrop -->
-    <div class="absolute inset-0 backdrop-blur-xs bg-opacity-50" @click="handleClose"></div>
-    
+    <div
+      class="absolute inset-0 backdrop-blur-sm bg-black/40 bg-opacity-50"
+      @click="handleClose"
+    ></div>
+
     <!-- Modal Content -->
-    <div class="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 p-6 max-h-[90vh] flex flex-col">
+    <div
+      class="relative bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 p-6 max-h-[90vh] flex flex-col"
+    >
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-xl font-bold text-gray-900">
           <i class="fas fa-edit mr-2"></i>
           Input Grades
         </h3>
-        <button 
-          @click="handleClose"
-          class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-        >
+        <button @click="handleClose" class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
           ×
         </button>
       </div>
-      
+
       <div class="mb-4">
         <p class="text-sm text-gray-600" v-if="student">
           <span class="font-semibold">Student:</span> {{ student.id_number }} - {{ student.name }}
         </p>
       </div>
-      
+
       <div v-if="error" class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
         <p class="text-sm text-red-700">{{ error }}</p>
       </div>
-      
-      <div v-if="validationErrors[-1]" class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+
+      <div
+        v-if="validationErrors[-1]"
+        class="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3"
+      >
         <p class="text-sm text-yellow-700">{{ validationErrors[-1] }}</p>
       </div>
 
@@ -37,19 +42,29 @@
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50 sticky top-0">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              >
                 Course Outcome
               </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th
+                class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
                 Description
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <th
+                class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              >
                 Max Score
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <th
+                class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"
+              >
                 Weight (%)
               </th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              <th
+                class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+              >
                 Score
               </th>
             </tr>
@@ -81,7 +96,7 @@
                     @input="(e) => handleScoreChange(co.id, (e.target as HTMLInputElement).value)"
                     :class="[
                       'w-28 px-2 py-1 text-center border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-                      validationErrors[co.id] ? 'border-red-500' : 'border-gray-300'
+                      validationErrors[co.id] ? 'border-red-500' : 'border-gray-300',
                     ]"
                     step="0.01"
                     :disabled="saving"
@@ -96,7 +111,7 @@
           </tbody>
         </table>
       </div>
-      
+
       <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
         <button
           type="button"
@@ -112,7 +127,7 @@
           :disabled="saving"
           :class="[
             'px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50',
-            'bg-indigo-600 hover:bg-indigo-700'
+            'bg-indigo-600 hover:bg-indigo-700',
           ]"
         >
           <i v-if="saving" class="fas fa-spinner fa-pulse mr-2"></i>
@@ -178,7 +193,7 @@ const resetForm = () => {
     formScores.value = { ...props.existingScores }
   } else {
     formScores.value = {}
-    props.courseOutcomes.forEach(co => {
+    props.courseOutcomes.forEach((co) => {
       formScores.value[co.id] = ''
     })
   }
@@ -186,18 +201,25 @@ const resetForm = () => {
 }
 
 // Watch for modal open
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    resetForm()
-  }
-})
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      resetForm()
+    }
+  },
+)
 
 // Watch for existingScores changes
-watch(() => props.existingScores, () => {
-  if (props.isOpen) {
-    resetForm()
-  }
-}, { deep: true })
+watch(
+  () => props.existingScores,
+  () => {
+    if (props.isOpen) {
+      resetForm()
+    }
+  },
+  { deep: true },
+)
 
 const validateScore = (co: CourseOutcome, value: string | number | undefined): boolean => {
   if (value === '' || value === null || value === undefined) {
@@ -226,7 +248,7 @@ const validateScore = (co: CourseOutcome, value: string | number | undefined): b
 }
 
 const handleScoreChange = (coId: number, value: string) => {
-  const co = props.courseOutcomes.find(c => c.id === coId)
+  const co = props.courseOutcomes.find((c) => c.id === coId)
   if (co) {
     validateScore(co, value)
   }
@@ -234,7 +256,9 @@ const handleScoreChange = (coId: number, value: string) => {
 }
 
 const hasAnyScore = computed(() => {
-  return Object.values(formScores.value).some(score => score !== '' && score !== null && score !== undefined)
+  return Object.values(formScores.value).some(
+    (score) => score !== '' && score !== null && score !== undefined,
+  )
 })
 
 const handleSubmit = () => {
@@ -245,14 +269,14 @@ const handleSubmit = () => {
       isValid = false
     }
   }
-  
+
   if (!isValid) return
-  
+
   if (!hasAnyScore.value) {
     validationErrors.value[-1] = 'Please enter at least one grade'
     return
   }
-  
+
   emit('submit', formScores.value)
 }
 

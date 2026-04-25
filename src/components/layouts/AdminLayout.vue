@@ -6,7 +6,7 @@ const sidebarOpen = ref(true)
 </script>
 
 <template>
-  <div class="flex h-screen bg-gray-50">
+  <div class="flex h-screen bg-gray-100">
     <Sidebar :isOpen="sidebarOpen" @toggle="sidebarOpen = !sidebarOpen" />
 
     <main
