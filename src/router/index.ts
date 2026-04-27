@@ -22,13 +22,13 @@ const routes = [
   { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } },
   {
     path: '/faculty/courses/:courseId/class-record',
-    name: 'ClassRecord',
+    name: 'FacultyClassRecord',
     component: ClassRecords,
     meta: { requiresFaculty: true },
   },
   {
     path: '/faculty/courses/:courseId/co-report',
-    name: 'COReport',
+    name: 'FacultyCOReport',
     component: COReport,
     meta: { requiresFaculty: true },
   },
@@ -37,15 +37,15 @@ const routes = [
   //Chairperson routes
   { path: '/chairperson/dashboard', component: Dashboard, meta: { requiresChairperson: true } },
   { path: '/chairperson/class-record', component: ClassRecord, meta: { requiresChairperson: true } },
-   {
+  {
     path: '/chairperson/dashboard/:courseId/class-record',
-    name: 'COReport',
+    name: 'ChairpersonDashboardClassRecord',
     component: COReport,
     meta: { requiresChairperson: true },
   },
-    {
+  {
     path: '/chairperson/courses/:courseId/class-record',
-    name: 'ClassRecord',
+    name: 'ChairpersonClassRecord',
     component: ClassRecords,
     meta: { requiresChairperson: true },
   },
@@ -56,33 +56,35 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, from) => {
   const auth = useAuthStore()
   await auth.fetchUser()
 
   const publicAuthRoutes = ['/', '/register', '/forgot-password', '/reset-password']
 
+  // If user is authenticated and trying to access public auth pages
   if (auth.user && publicAuthRoutes.includes(to.path)) {
     if (auth.role === 'Faculty') {
-      next('/faculty/courses')
+      return '/faculty/courses'
     } else if (auth.role === 'Admin') {
-      next('/admin/dashboard')
-    } else {
-      next('/')
+      return '/admin/dashboard'
+    } else if (auth.role === 'Chairperson') {
+      return '/chairperson/dashboard'
     }
-    return
   }
 
   // Protect faculty routes
   if (to.meta.requiresFaculty && auth.role !== 'Faculty') {
-    next('/')
+    return '/'
   }
+  
   // Protect chairperson routes
-  else if (to.meta.requiresChairperson && auth.role !== 'Chairperson') {
-    next('/')
-  } else {
-    next()
+  if (to.meta.requiresChairperson && auth.role !== 'Chairperson') {
+    return '/'
   }
+
+  // Allow navigation
+  return true
 })
 
 export default router
