@@ -8,6 +8,7 @@ import ResetPassword from '@/views/auth/ResetPassword.vue'
 import Students from '@/views/faculty/Students.vue'
 import Courses from '@/views/faculty/Courses.vue'
 import ClassRecords from '@/views/faculty/Students-Records.vue'
+import sampleRecord from '@/views/faculty/sampleRecord.vue'
 import StudentRecord from '@/views/faculty/ClassRecord.vue'
 
 const routes = [
@@ -23,6 +24,8 @@ const routes = [
     component: ClassRecords,
     meta: { requiresFaculty: true },
   },
+  { path: '/faculty/sample', component: sampleRecord, meta: { requiresFaculty: true } },
+
   { path: '/faculty/records', component: StudentRecord, meta: { requiresFaculty: true } },
 ]
 
