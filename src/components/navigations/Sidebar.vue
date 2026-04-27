@@ -36,7 +36,10 @@ const navigationItems = computed(() => {
     return []
   }
   if (user_role === 'Chairperson') {
-    return []
+    return [
+       { name: 'My Courses', href: '/chairperson/dashboard', icon: PhPen },
+        { name: 'Class Records', href: '/chairperson/class-record', icon: PhUsers },
+    ]
   }
   if (user_role === 'Faculty') {
     return [
