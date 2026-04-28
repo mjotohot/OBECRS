@@ -23,14 +23,14 @@ const routes = [
   { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } },
   {
     path: '/faculty/courses/:courseId/class-record',
-    name: 'ClassRecord',
+    name: 'FacultyClassRecord',
     component: ClassRecords,
     meta: { requiresFaculty: true },
   },
   { path: '/faculty/sample', component: sampleRecord, meta: { requiresFaculty: true } },
   {
     path: '/faculty/courses/:courseId/co-report',
-    name: 'COReport',
+    name: 'FacultyCOReport',
     component: COReport,
     meta: { requiresFaculty: true },
   },
@@ -45,13 +45,13 @@ const routes = [
   },
   {
     path: '/chairperson/dashboard/:courseId/class-record',
-    name: 'COReport',
+    name: 'ChairpersonDashboardClassRecord',
     component: COReport,
     meta: { requiresChairperson: true },
   },
   {
     path: '/chairperson/courses/:courseId/class-record',
-    name: 'ClassRecord',
+    name: 'ChairpersonClassRecord',
     component: ClassRecords,
     meta: { requiresChairperson: true },
   },
@@ -68,13 +68,14 @@ router.beforeEach(async (to, from) => {
 
   const publicAuthRoutes = ['/', '/register', '/forgot-password', '/reset-password']
 
+  // If user is authenticated and trying to access public auth pages
   if (auth.user && publicAuthRoutes.includes(to.path)) {
     if (auth.role === 'Faculty') {
       return '/faculty/courses'
     } else if (auth.role === 'Admin') {
       return '/admin/dashboard'
-    } else {
-      return '/'
+    } else if (auth.role === 'Chairperson') {
+      return '/chairperson/dashboard'
     }
   }
 
@@ -82,10 +83,12 @@ router.beforeEach(async (to, from) => {
     return '/'
   }
 
+  // Protect chairperson routes
   if (to.meta.requiresChairperson && auth.role !== 'Chairperson') {
     return '/'
   }
 
+  // Allow navigation
   return true
 })
 

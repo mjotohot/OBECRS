@@ -299,7 +299,7 @@ const handleLogoutConfirm = async () => {
 const handleViewClassRecord = (course: Course) => {
   store.setCourse(course)
   router.push({
-    name: 'ClassRecord',
+    name: 'ChairpersonClassRecord',
     params: { courseId: course.id },
   })
 }
@@ -307,7 +307,7 @@ const handleViewClassRecord = (course: Course) => {
 const handleCOReport = (course: Course) => {
   store.setCourse(course)
   router.push({
-    name: 'COReport',
+    name: 'ChairpersonDashboardClassRecord',
     params: { courseId: course.id },
   })
 }
