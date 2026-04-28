@@ -374,35 +374,124 @@ const handleStudentSubmit = async (formData: any) => {
   }
 }
 
+const pdfTemplate = computed(() => {
+  const groups: Record<string, CourseOutcome[]> = {}
+  for (const co of courseOutcomes.value) {
+    if (!groups[co.co_code]) groups[co.co_code] = []
+    groups[co.co_code]!.push(co)
+  }
+
+  const coGroups = Object.entries(groups).map(([code, outcomes]) => ({
+    code,
+    assessments: outcomes.map((co) => ({
+      abbreviation: co.co_description.substring(0, 6), // keep short
+      maxScore: co.co_score,
+      weight: co.co_weight,
+      origId: co.id,
+    })),
+  }))
+
+  // No normalisation – send exactly what the course has
+  const weightPcts = coGroups.flatMap((co) =>
+    co.assessments.map((a) => (a.weight > 0 ? `${a.weight}%` : '—')),
+  )
+
+  return {
+    coGroups, // variable lengths per CO
+    weightPcts,
+  }
+})
+
+const pdfStudents = computed(() => {
+  const tpl = pdfTemplate.value
+  const allAssessments = tpl.coGroups.flatMap((g) => g.assessments)
+
+  return students.value.map((student) => {
+    // Raw scores in the same order as the padded assessment list
+    const rawScores = allAssessments.map((assess) => {
+      if (assess.origId === null) return 0 // padding – will be displayed as '—'
+      const co = courseOutcomes.value.find((c) => c.id === assess.origId)
+      return co ? parseFloat(String(getScore(student.id, co.id))) || 0 : 0
+    })
+
+    // Percentage equivalents
+    const percentages = allAssessments.map((assess, i) => {
+      if (assess.origId === null) return '—' // padding
+      const score = rawScores[i]
+      return assess.maxScore ? ((score / assess.maxScore) * 100).toFixed(1) : '0.0'
+    })
+
+    // Summary values – use your existing helpers
+    const coAttainments = coKeys.value.map((coCode) => getCoAttainment(student.id, coCode) ?? 0)
+    const finalWA = getFinalWA(student.id)
+    const grade = getGradeEquivalent(finalWA)
+    const below = isBelowThreshold(student.id)
+
+    return {
+      id: student.id,
+      name: student.name,
+      rawScores,
+      percentages,
+      // Sum of weights for each CO (using padded list, but zeros don't affect sum)
+      co1Weight: tpl.coGroups[0]?.assessments.reduce((s, a) => s + a.weight, 0) ?? 0,
+      co2Weight: tpl.coGroups[1]?.assessments.reduce((s, a) => s + a.weight, 0) ?? 0,
+      co3Weight: tpl.coGroups[2]?.assessments.reduce((s, a) => s + a.weight, 0) ?? 0,
+      co1Percent: coAttainments[0],
+      co2Percent: coAttainments[1],
+      co3Percent: coAttainments[2],
+      finalWA,
+      finalGrade: grade.numerical.toFixed(2),
+      remarks: below ? 'Failed' : 'Pass',
+      intervention: below ? 'Intervention Failed' : '',
+      finalGradeAfter: '',
+    }
+  })
+})
+
 const exportPDF = async () => {
-  loading.value = true
+  isloading.value = true
   try {
+    const tpl = pdfTemplate.value
+    const payload = {
+      students: pdfStudents.value,
+      courseInfo: {
+        title: `${course?.course_code} - ${course?.course_title}` || 'Class Record',
+        semAy: '1ST SEMESTER / AY 2025 - 2026',
+      },
+      template: {
+        coGroups: tpl.coGroups,
+        weightPcts: tpl.weightPcts,
+      },
+    }
+
     const res = await fetch(
       'https://xgegivpmktyunrwmaktp.supabase.co/functions/v1/generated-class-record',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          students: students.value,
-          courseInfo: {
-            title: 'ITE 13: Intermediate Programming',
-            semAy: '1ST SEMESTER / AY 2025 - 2026',
-          },
-        }),
+        body: JSON.stringify(payload),
       },
     )
 
-    if (!res.ok) throw new Error('Server error')
-    const { pdfBase64 } = await res.json()
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Server error')
+    }
 
-    // Convert base64 to blob & download
-    const byteChars = atob(pdfBase64)
+    const data = await res.json()
+    if (!data.pdfBase64) {
+      throw new Error('Missing pdfBase64 in response')
+    }
+
+    // Convert base64 to blob and trigger download
+    const byteChars = atob(data.pdfBase64)
     const byteNums = new Array(byteChars.length)
     for (let i = 0; i < byteChars.length; i++) {
       byteNums[i] = byteChars.charCodeAt(i)
     }
     const byteArr = new Uint8Array(byteNums)
     const blob = new Blob([byteArr], { type: 'application/pdf' })
+
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -412,10 +501,10 @@ const exportPDF = async () => {
     a.remove()
     URL.revokeObjectURL(url)
   } catch (error) {
-    console.error(error)
+    console.error('PDF export failed:', error)
     alert('Failed to generate PDF')
   } finally {
-    loading.value = false
+    isloading.value = false
   }
 }
 
@@ -491,7 +580,6 @@ onMounted(async () => {
             @click="exportPDF"
             :disabled="isloading"
             style="
-              margin-bottom: 16px;
               padding: 8px 16px;
               background-color: #2563eb;
               color: white;
@@ -500,7 +588,7 @@ onMounted(async () => {
               cursor: pointer;
             "
           >
-            {{ loading ? 'Generating PDF...' : 'Export to PDF' }}
+            {{ isloading ? 'Generating PDF...' : 'Export to PDF' }}
           </button>
         </div>
       </div>

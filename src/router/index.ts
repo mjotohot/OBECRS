@@ -9,7 +9,6 @@ import Students from '@/views/faculty/Students.vue'
 import Courses from '@/views/faculty/Courses.vue'
 import ClassRecords from '@/views/faculty/Students-Records.vue'
 import sampleRecord from '@/views/faculty/sampleRecord.vue'
-import StudentRecord from '@/views/faculty/ClassRecord.vue'
 import COReport from '@/views/faculty/Reports.vue'
 import Dashboard from '@/views/chairperson/Dashboard.vue'
 import ClassRecord from '@/views/chairperson/ClassRecord.vue'
@@ -34,7 +33,6 @@ const routes = [
     component: COReport,
     meta: { requiresFaculty: true },
   },
-  { path: '/faculty/records', component: StudentRecord, meta: { requiresFaculty: true } },
 
   //Chairperson routes
   { path: '/chairperson/dashboard', component: Dashboard, meta: { requiresChairperson: true } },
