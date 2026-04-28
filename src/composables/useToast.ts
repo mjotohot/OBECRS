@@ -14,7 +14,7 @@ export function useToast() {
     toasts.value.push({ id, message, type })
     setTimeout(() => {
       toasts.value = toasts.value.filter((t) => t.id !== id)
-    }, 5000)
+    }, 3000)
   }
 
   const removeToast = (id: number) => {

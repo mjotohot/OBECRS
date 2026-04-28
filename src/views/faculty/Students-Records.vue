@@ -47,6 +47,7 @@ const store = useCourseStore()
 const course = store.selectedCourse
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
+const isloading = ref(false)
 
 // Grade modal specific refs
 const selectedStudentForGrade = ref<Student | null>(null)
@@ -373,6 +374,51 @@ const handleStudentSubmit = async (formData: any) => {
   }
 }
 
+const exportPDF = async () => {
+  loading.value = true
+  try {
+    const res = await fetch(
+      'https://xgegivpmktyunrwmaktp.supabase.co/functions/v1/generated-class-record',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          students: students.value,
+          courseInfo: {
+            title: 'ITE 13: Intermediate Programming',
+            semAy: '1ST SEMESTER / AY 2025 - 2026',
+          },
+        }),
+      },
+    )
+
+    if (!res.ok) throw new Error('Server error')
+    const { pdfBase64 } = await res.json()
+
+    // Convert base64 to blob & download
+    const byteChars = atob(pdfBase64)
+    const byteNums = new Array(byteChars.length)
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNums[i] = byteChars.charCodeAt(i)
+    }
+    const byteArr = new Uint8Array(byteNums)
+    const blob = new Blob([byteArr], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'Class_Record.pdf'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error(error)
+    alert('Failed to generate PDF')
+  } finally {
+    loading.value = false
+  }
+}
+
 const handleLogoutConfirm = async () => {
   try {
     await signOut()
@@ -440,6 +486,21 @@ onMounted(async () => {
           >
             <i class="fas fa-plus mr-2"></i>
             Input Grade
+          </button>
+          <button
+            @click="exportPDF"
+            :disabled="isloading"
+            style="
+              margin-bottom: 16px;
+              padding: 8px 16px;
+              background-color: #2563eb;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            {{ loading ? 'Generating PDF...' : 'Export to PDF' }}
           </button>
         </div>
       </div>

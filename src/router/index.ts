@@ -10,6 +10,9 @@ import Courses from '@/views/faculty/Courses.vue'
 import ClassRecords from '@/views/faculty/Students-Records.vue'
 import sampleRecord from '@/views/faculty/sampleRecord.vue'
 import StudentRecord from '@/views/faculty/ClassRecord.vue'
+import COReport from '@/views/faculty/Reports.vue'
+import Dashboard from '@/views/chairperson/Dashboard.vue'
+import ClassRecord from '@/views/chairperson/ClassRecord.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -25,8 +28,33 @@ const routes = [
     meta: { requiresFaculty: true },
   },
   { path: '/faculty/sample', component: sampleRecord, meta: { requiresFaculty: true } },
-
+  {
+    path: '/faculty/courses/:courseId/co-report',
+    name: 'COReport',
+    component: COReport,
+    meta: { requiresFaculty: true },
+  },
   { path: '/faculty/records', component: StudentRecord, meta: { requiresFaculty: true } },
+
+  //Chairperson routes
+  { path: '/chairperson/dashboard', component: Dashboard, meta: { requiresChairperson: true } },
+  {
+    path: '/chairperson/class-record',
+    component: ClassRecord,
+    meta: { requiresChairperson: true },
+  },
+  {
+    path: '/chairperson/dashboard/:courseId/class-record',
+    name: 'COReport',
+    component: COReport,
+    meta: { requiresChairperson: true },
+  },
+  {
+    path: '/chairperson/courses/:courseId/class-record',
+    name: 'ClassRecord',
+    component: ClassRecords,
+    meta: { requiresChairperson: true },
+  },
 ]
 
 const router = createRouter({
@@ -34,7 +62,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, from) => {
   const auth = useAuthStore()
   await auth.fetchUser()
 
@@ -42,21 +70,23 @@ router.beforeEach(async (to, from, next) => {
 
   if (auth.user && publicAuthRoutes.includes(to.path)) {
     if (auth.role === 'Faculty') {
-      next('/faculty/courses')
+      return '/faculty/courses'
     } else if (auth.role === 'Admin') {
-      next('/admin/dashboard')
+      return '/admin/dashboard'
     } else {
-      next('/')
+      return '/'
     }
-    return
   }
 
-  // Protect faculty routes
   if (to.meta.requiresFaculty && auth.role !== 'Faculty') {
-    next('/')
-  } else {
-    next()
+    return '/'
   }
+
+  if (to.meta.requiresChairperson && auth.role !== 'Chairperson') {
+    return '/'
+  }
+
+  return true
 })
 
 export default router

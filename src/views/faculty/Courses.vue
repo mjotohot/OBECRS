@@ -63,6 +63,9 @@ const courseOutcomes = ref<CourseOutcome[]>([])
 const coSaving = ref(false)
 const coError = ref<string | null>(null)
 
+  const goBack = () => {
+  router.push('/faculty/courses')
+}
 // Syllabus upload state
 const syllabusUploading = ref(false)
 const syllabusError = ref<string | null>(null)
@@ -302,7 +305,11 @@ const handleViewClassRecord = (course: Course) => {
 }
 
 const handleCOReport = (course: Course) => {
-  console.log('Generate CO report for:', course.course_code)
+  store.setCourse(course)
+  router.push({
+    name: 'COReport',
+    params: { courseId: course.id },
+  })
 }
 
 // Determine which buttons to show based on status
