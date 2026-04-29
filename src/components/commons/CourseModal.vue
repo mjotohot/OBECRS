@@ -123,11 +123,11 @@
             </option>
           </select>
           <p
-            v-if="formErrors.academic_year_id"
+            v-if="formErrors.academic_year"
             class="mt-1.5 text-xs text-red-500 flex items-center gap-1"
           >
             <PhWarningCircle :size="14" weight="bold" />
-            {{ formErrors.academic_year_id }}
+            {{ formErrors.academic_year }}
           </p>
           <p
             v-if="academicYearsLoading"
@@ -223,7 +223,7 @@ const formData = reactive({
   course_code: '',
   course_title: '',
   section: '',
-  academic_year_id: null as number | null,
+  academic_year: null as number | null,
   status: 'Not Started',
 })
 
@@ -231,11 +231,11 @@ const formErrors = reactive({
   course_code: '',
   course_title: '',
   section: '',
-  academic_year_id: '',
+  academic_year: '',
 })
 
 const updateAcademicYearId = () => {
-  formData.academic_year_id = selectedAcademicYearId.value
+  formData.academic_year = selectedAcademicYearId.value
 }
 
 const loadAcademicYears = async () => {
@@ -249,14 +249,14 @@ const resetForm = () => {
     formData.course_code = props.course.course_code || ''
     formData.course_title = props.course.course_title || ''
     formData.section = props.course.section || ''
-    formData.academic_year_id = props.course.academic_year_id || null
+    formData.academic_year = props.course.academic_year || null
     formData.status = props.course.status || 'Not Started'
-    selectedAcademicYearId.value = formData.academic_year_id
+    selectedAcademicYearId.value = formData.academic_year
   } else {
     formData.course_code = ''
     formData.course_title = ''
     formData.section = ''
-    formData.academic_year_id = null
+    formData.academic_year = null
     formData.status = 'Not Started'
     selectedAcademicYearId.value = null
   }
@@ -264,7 +264,7 @@ const resetForm = () => {
   formErrors.course_code = ''
   formErrors.course_title = ''
   formErrors.section = ''
-  formErrors.academic_year_id = ''
+  formErrors.academic_year = ''
 }
 
 watch(
@@ -292,7 +292,7 @@ const validateForm = (): boolean => {
   formErrors.course_code = ''
   formErrors.course_title = ''
   formErrors.section = ''
-  formErrors.academic_year_id = ''
+  formErrors.academic_year = ''
 
   if (!formData.course_code.trim()) {
     formErrors.course_code = 'Course code is required'
@@ -315,8 +315,8 @@ const validateForm = (): boolean => {
     isValid = false
   }
 
-  if (!formData.academic_year_id) {
-    formErrors.academic_year_id = 'Please select an academic year'
+  if (!formData.academic_year) {
+    formErrors.academic_year = 'Please select an academic year'
     isValid = false
   }
 
@@ -325,7 +325,7 @@ const validateForm = (): boolean => {
 
 const handleSubmit = () => {
   if (validateForm()) {
-    formData.academic_year_id = selectedAcademicYearId.value
+    formData.academic_year = selectedAcademicYearId.value
     emit('submit', { ...formData })
   }
 }

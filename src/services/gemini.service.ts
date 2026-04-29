@@ -16,54 +16,154 @@ export interface ExtractedData {
   assessments: ExtractedAssessment[]
 }
 
+export class MissingAssessmentsError extends Error {
+  public missingTasks: string[]
+  
+  constructor(message: string, missingTasks: string[] = []) {
+    super(message)
+    this.name = 'MissingAssessmentsError'
+    this.missingTasks = missingTasks
+  }
+}
+
 export const extractCOsFromPDF = async (pdfFile: File): Promise<ExtractedData> => {
   try {
-    // Convert PDF to base64
+    console.log('Starting PDF extraction...', pdfFile.name, pdfFile.size)
+    
+    if (pdfFile.size > 20 * 1024 * 1024) {
+      throw new Error('PDF file too large. Please use a file smaller than 20MB.')
+    }
+    
     const base64PDF = await fileToGenerativePart(pdfFile)
+    console.log('PDF converted to base64')
     
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-3-flash-preview',
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: 8192,
+      }
+    })
     
-    const prompt = `You are a specialized Data Extraction Assistant.
-    
-Extract all assessment tasks from the 'Detailed Assessment Weights' table in Part IV of the provided document.
+    const prompt = `STRICT AUDIT PROTOCOL - NO EXCEPTIONS
 
-Constraint Rules:
-1. Granularity: You must separate collective tasks (e.g., 'Laboratory Activities 1-11') into individual objects for each item (1, 2, 3... 11).
-2. Object Structure: Each object in the JSON array must contain exactly these keys: co, task, task_weight_within_category, final_co_contribution, and domain.
-3. Data Normalization: For domain, use the shorthand codes: C (Cognitive), P (Psychomotor), A (Affective).
-4. For final_co_contribution, calculate the specific percentage weight assigned to that individual task relative to the total course grade.
+STEP 1: Extract ALL task names from Part IV table
+- Expand ranges: "Laboratory Activity 1-11" → ["Laboratory Activity 1", "Laboratory Activity 2", ..., "Laboratory Activity 11"]
+- List EVERY individual task
 
-Return ONLY a valid JSON object. No markdown, no conversational text.
+STEP 2: Search Part III for matches (EXACT or COMBINED)
+For EACH task from Part IV, search the "ASSESSMENT" columns in Part III "Teaching and Learning Plan" table using these matching rules:
 
-Schema Template:
-{
-  "assessments": [
-    {
-      "co": "string",
-      "task": "string",
-      "task_weight_within_category": "string",
-      "final_co_contribution": number,
-    }
-  ]
-}`
+  RULE A – Exact match: "Laboratory Activity 6" found as "Laboratory Activity 6" ✓
+  
+  RULE B – Combined with ampersand: "Laboratory Activity 2" is covered if Part III contains
+           "Laboratory Activity 2 & 3" or "Laboratory Activity 2 & 3 & 4", etc. ✓
+  
+  RULE C – Combined with range/dash: "Laboratory Activity 2" is covered if Part III contains
+           "Laboratory Activity 2-3" or "Laboratory Activity 2–4", etc. ✓
+  
+  RULE D – Combined with comma: "Laboratory Activity 2" is covered if Part III contains
+           "Laboratory Activity 2, 3" or "Laboratory Activity 2, 3, 4", etc. ✓
 
+  A task is considered FOUND if its number appears in ANY of the above patterns.
+  A task is MISSING only if no entry in Part III covers it under any of the above rules.
+
+STEP 3: Verdict
+IF ANY task from Part IV is NOT found in Part III (under any rule above):
+  Output as JSON (no markdown):
+  {
+    "status": "missing",
+    "missing_tasks": ["Laboratory Activity 6", "Laboratory Activity 7", ...]
+  }
+  
+IF ALL tasks found:
+  Extract to JSON (no markdown):
+  {
+    "assessments": [
+      {
+        "co": "CO1",
+        "task": "Laboratory Activity 1",
+        "task_weight_within_category": "9.09%",
+        "final_co_contribution": 0.909,
+        "domain": "Psychomotor"
+      }
+    ]
+  }
+
+CRITICAL: Apply all four matching rules before declaring a task missing. Only flag a task as missing if it genuinely cannot be found under any rule.`
+
+    console.log('Sending request to Gemini API...')
     const result = await model.generateContent([prompt, base64PDF])
-    const response = await result.response
-    const text = response.text()
+    console.log('Received response from Gemini API')
     
-    // Clean the response (remove markdown code blocks if present)
-    let cleanText = text.trim()
-    if (cleanText.startsWith('```json')) {
-      cleanText = cleanText.replace(/```json\n?/, '').replace(/```\n?$/, '')
-    } else if (cleanText.startsWith('```')) {
-      cleanText = cleanText.replace(/```\n?/, '').replace(/```\n?$/, '')
+    const response = await result.response
+    let text = response.text().trim()
+    console.log('Raw response:', text.substring(0, 500))
+    
+   // Aggressively strip all markdown fences and surrounding whitespace
+text = text
+  .replace(/^```[\w]*\n?/gm, '')
+  .replace(/^```\n?/gm, '')
+  .trim()
+
+// If Gemini wrapped the JSON in extra text, extract just the JSON object
+const jsonMatch = text.match(/\{[\s\S]*\}/)
+if (jsonMatch) {
+  text = jsonMatch[0]
+}
+
+console.log('Cleaned text before parse:', text.substring(0, 500))
+console.log('Parsing JSON response...')
+
+let parsedResponse: any
+try {
+  parsedResponse = JSON.parse(text)
+} catch (parseError) {
+  console.error('JSON parse failed. Raw text was:', text)
+  throw new SyntaxError('JSON parse failed')
+}
+    // Check if there are missing tasks
+    if (parsedResponse.status === 'missing' && parsedResponse.missing_tasks?.length > 0) {
+      const missingTasksList = parsedResponse.missing_tasks.join(', ')
+      throw new MissingAssessmentsError(
+        `Syllabus validation failed: The following assessment tasks in Part IV are not listed in Part III: ${missingTasksList}`,
+        parsedResponse.missing_tasks
+      )
     }
     
-    const extractedData: ExtractedData = JSON.parse(cleanText)
+    // Extract the assessments
+    const extractedData: ExtractedData = {
+      assessments: parsedResponse.assessments || []
+    }
+    
+    if (!extractedData.assessments?.length) {
+      throw new MissingAssessmentsError('No assessments found in syllabus.')
+    }
+    
+    console.log(`Successfully extracted ${extractedData.assessments.length} assessments`)
     return extractedData
-  } catch (error) {
-    console.error('Error extracting COs from PDF:', error)
-    throw new Error('Failed to extract course outcomes from syllabus')
+    
+  } catch (error: any) {
+    console.error('Detailed error in extractCOsFromPDF:', error)
+    
+    if (error instanceof MissingAssessmentsError) {
+      throw error
+    }
+    
+    if (error instanceof SyntaxError) {
+      console.error('JSON Parse Error:', error.message)
+      throw new Error('Invalid syllabus format. Unable to parse assessment data.')
+    }
+    
+    if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
+      throw new Error('API rate limit reached. Please wait a moment and try again.')
+    }
+    
+    if (error.message?.includes('API key')) {
+      throw new Error('API configuration error. Please contact support.')
+    }
+    
+    throw new Error(`Failed to extract course outcomes: ${error.message || 'Unknown error'}`)
   }
 }
 
@@ -73,23 +173,24 @@ const fileToGenerativePart = async (file: File): Promise<{
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onloadend = () => {
-      if (!reader.result || typeof reader.result !== 'string') {
-        reject(new Error('Failed to read file as base64'))
+      const result = reader.result as string
+      if (!result) {
+        reject(new Error('Failed to read file: No data'))
         return
       }
-      const base64Data = reader.result.split(',')[1]
+      const base64Data = result.split(',')[1]
       if (!base64Data) {
-        reject(new Error('Invalid base64 data format'))
+        reject(new Error('Failed to read file: Invalid format'))
         return
       }
       resolve({
         inlineData: {
           data: base64Data,
-          mimeType: file.type
+          mimeType: file.type || 'application/pdf'
         }
       })
     }
-    reader.onerror = reject
+    reader.onerror = () => reject(new Error('File read error: ' + reader.error?.message))
     reader.readAsDataURL(file)
   })
 }
@@ -99,44 +200,29 @@ export const insertCourseOutcomes = async (
   assessments: ExtractedAssessment[]
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // First, get the existing course outcomes for this course
-    const { data: existingOutcomes, error: fetchError } = await supabase
+    await supabase
       .from('course_outcomes')
-      .select('*')
+      .delete()
       .eq('course_id', courseId)
 
-    if (fetchError) throw fetchError
-
-    // Prepare the new outcomes to insert
-    const outcomesToInsert = assessments.map(assessment => ({
+    const outcomesToInsert = assessments.map(a => ({
       course_id: courseId,
-      co_code: assessment.co,
-      co_description: assessment.task,
-      co_score: null, // Will be set by faculty later
-      co_weight: assessment.final_co_contribution / 100, // Convert percentage to decimal
+      co_code: a.co,
+      co_description: a.task,
+      co_score: null,
+      co_weight: a.final_co_contribution / 100,
       created_at: new Date().toISOString()
     }))
 
-    // Delete existing outcomes for this course
-    if (existingOutcomes && existingOutcomes.length > 0) {
-      const { error: deleteError } = await supabase
-        .from('course_outcomes')
-        .delete()
-        .eq('course_id', courseId)
-
-      if (deleteError) throw deleteError
-    }
-
-    // Insert new outcomes
-    const { error: insertError } = await supabase
+    const { error } = await supabase
       .from('course_outcomes')
       .insert(outcomesToInsert)
 
-    if (insertError) throw insertError
+    if (error) throw error
 
     return { success: true }
   } catch (error) {
-    console.error('Error inserting course outcomes:', error)
-    return { success: false, error: 'Failed to insert course outcomes' }
+    console.error('DB insert error:', error)
+    return { success: false, error: 'Failed to save outcomes' }
   }
 }

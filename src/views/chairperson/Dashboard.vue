@@ -229,12 +229,19 @@ const handleSyllabusUpload = async (file: File) => {
     }
 
     showSyllabusModal.value = false
+    // Clear selected file and show success message
     alert(
       `Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`,
     )
   } catch (err) {
     console.error('Error uploading syllabus:', err)
-    syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
+    
+    // Custom error message for missing assessments
+    if (err instanceof Error && err.message.includes('missing assessment tasks')) {
+      syllabusError.value = 'The syllabus is missing complete assessment task information. Please ensure the syllabus contains a detailed "Assessment Weights" table with all required tasks and their weights before uploading.'
+    } else {
+      syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
+    }
   } finally {
     syllabusUploading.value = false
   }
@@ -314,6 +321,7 @@ const handleCOReport = (course: Course) => {
 
 // Determine which buttons to show based on status
 const shouldShowUploadSyllabus = (status: string) => status === 'Not Started'
+const shouldShowEditCO = (status: string) => status === 'In Progress' || status === 'Completed'
 const shouldShowViewClassRecord = (status: string) => status !== 'Not Started'
 const shouldShowCOReport = (status: string) => status !== 'Not Started'
 
@@ -495,6 +503,7 @@ const getStatusBorderClass = (status: string) => {
 
                     <!-- Edit CO Scores -->
                     <button
+                       v-if="shouldShowViewClassRecord(course.status)"
                       @click="openCOModal(course)"
                       class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
                       title="Edit CO Scores"
