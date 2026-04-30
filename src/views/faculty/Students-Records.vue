@@ -59,7 +59,7 @@ const gradeModalError = ref<string | null>(null)
 const enrollmentMap = ref<Record<number, number>>({})
 
 // scores: studentId -> coId -> score value
-const scores = ref<Record<number, Record<number, string | number>>>({})
+const scores = ref<Record<number, Record<number, number>>>({})
 
 // Group outcomes by co_code
 const groupedOutcomes = computed(() => {
@@ -417,7 +417,7 @@ const pdfStudents = computed(() => {
     // Percentage equivalents
     const percentages = allAssessments.map((assess, i) => {
       if (assess.origId === null) return '—' // padding
-      const score = rawScores[i]
+      const score = rawScores[i]!
       return assess.maxScore ? ((score / assess.maxScore) * 100).toFixed(1) : '0.0'
     })
 
