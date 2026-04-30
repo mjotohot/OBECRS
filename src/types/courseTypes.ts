@@ -1,5 +1,5 @@
 // types/courseTypes.ts
-export type CourseStatus = 'Not Started' | 'In Progress' | 'Completed'
+export type CourseStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Archived'
 
 export interface Course {
   id: number

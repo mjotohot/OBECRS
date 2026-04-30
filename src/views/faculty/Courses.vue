@@ -32,7 +32,7 @@ import {
   PhUpload,
   PhBookOpen,
   PhChartLine,
-  PhFileText,
+  PhArchive,
   PhPencilSimple,
   PhClock,
   PhSpinner,
@@ -56,6 +56,9 @@ const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
+const archivingCourseId = ref<number | null>(null)
+const unarchivingCourseId = ref<number | null>(null)
+const showArchived = ref(false)
 
 // CO Modal state
 const selectedCourseForCO = ref<Course | null>(null)
@@ -63,7 +66,7 @@ const courseOutcomes = ref<CourseOutcome[]>([])
 const coSaving = ref(false)
 const coError = ref<string | null>(null)
 
-  const goBack = () => {
+const goBack = () => {
   router.push('/faculty/courses')
 }
 // Syllabus upload state
@@ -100,9 +103,58 @@ const fetchCourses = async () => {
   }
 }
 
+// Archive a course – update local status, do not remove from array
+const archiveCourse = async (course: Course) => {
+  archivingCourseId.value = course.id
+  try {
+    await updateCourse(course.id, { status: 'Archived' })
+    // Update the course's status locally so it can be shown in archived view
+    const idx = courses.value.findIndex((c) => c.id === course.id)
+    if (idx !== -1) {
+      courses.value[idx] = { ...courses.value[idx], status: 'Archived' } as Course
+    }
+  } catch (err) {
+    console.error('Failed to archive course:', err)
+    error.value = 'Failed to archive course'
+  } finally {
+    archivingCourseId.value = null
+  }
+}
+
+// Unarchive a course – set back to Completed (or In Progress)
+const unarchiveCourse = async (course: Course) => {
+  unarchivingCourseId.value = course.id
+  try {
+    await updateCourse(course.id, { status: 'Completed' })
+    const idx = courses.value.findIndex((c) => c.id === course.id)
+    if (idx !== -1) {
+      courses.value[idx] = { ...courses.value[idx], status: 'Completed' } as Course
+    }
+  } catch (err) {
+    console.error('Failed to unarchive course:', err)
+    error.value = 'Failed to unarchive course'
+  } finally {
+    unarchivingCourseId.value = null
+  }
+}
+
+// Toggle between active and archived views
+const toggleArchived = () => {
+  showArchived.value = !showArchived.value
+  currentPage.value = 1
+}
+
+// Courses to display based on toggle
+const displayedCourses = computed(() => {
+  if (showArchived.value) {
+    return courses.value.filter((c) => c.status === 'Archived')
+  }
+  return courses.value.filter((c) => c.status !== 'Archived')
+})
+
 const paginatedCourses = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value
-  return courses.value.slice(start, start + itemsPerPage.value)
+  return displayedCourses.value.slice(start, start + itemsPerPage.value)
 })
 
 const handlePageChange = (page: number) => {
@@ -150,7 +202,6 @@ const handleCourseSubmit = async (formData: any) => {
       } else if (response.data) {
         courses.value.unshift(response.data)
         showCourseModal.value = false
-        console.log('Course added successfully')
       }
     } else {
       if (!selectedCourse.value) return
@@ -172,7 +223,6 @@ const handleCourseSubmit = async (formData: any) => {
           courses.value[index] = response.data
         }
         showCourseModal.value = false
-        console.log('Course updated successfully')
       }
     }
   } catch (err) {
@@ -229,16 +279,14 @@ const handleSyllabusUpload = async (file: File) => {
     }
 
     showSyllabusModal.value = false
-    // Clear selected file and show success message
     alert(
       `Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`,
     )
   } catch (err) {
     console.error('Error uploading syllabus:', err)
-    
-    // Custom error message for missing assessments
     if (err instanceof Error && err.message.includes('missing assessment tasks')) {
-      syllabusError.value = 'The syllabus is missing complete assessment task information. Please ensure the syllabus contains a detailed "Assessment Weights" table with all required tasks and their weights before uploading.'
+      syllabusError.value =
+        'The syllabus is missing complete assessment task information. Please ensure the syllabus contains a detailed "Assessment Weights" table with all required tasks and their weights before uploading.'
     } else {
       syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
     }
@@ -283,7 +331,6 @@ const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
 
     courseOutcomes.value = updatedOutcomes
     showCOModal.value = false
-    console.log('CO scores saved successfully')
   } catch (err) {
     console.error('Error saving course outcomes:', err)
     coError.value = 'Failed to save course outcomes'
@@ -296,7 +343,6 @@ const handleLogoutConfirm = async () => {
   try {
     await signOut()
     router.push('/')
-    console.log('Logout successful')
   } catch (error) {
     console.error('Logout failed:', error)
   }
@@ -339,6 +385,8 @@ const getStatusBadgeClass = (status: string) => {
       return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
     case 'Completed':
       return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+    case 'Archived':
+      return 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300/50'
     default:
       return 'bg-gray-50 text-gray-600 ring-1 ring-inset ring-gray-500/20'
   }
@@ -352,6 +400,8 @@ const getStatusIconComponent = (status: string) => {
       return PhClock
     case 'Completed':
       return PhCheckCircle
+    case 'Archived':
+      return PhArchive
     default:
       return PhCircle
   }
@@ -364,6 +414,8 @@ const getStatusBorderClass = (status: string) => {
       return 'border-l-amber-400'
     case 'Completed':
       return 'border-l-emerald-400'
+    case 'Archived':
+      return 'border-l-slate-400'
     default:
       return 'border-l-gray-300'
   }
@@ -376,19 +428,33 @@ const getStatusBorderClass = (status: string) => {
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
           <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
-            My Active Courses
+            {{ showArchived ? 'Archived Courses' : 'My Active Courses' }}
           </h2>
           <p class="mt-2 text-base text-gray-500 max-w-2xl">
-            Manage class records and track course outcome attainment for your courses
+            {{
+              showArchived
+                ? 'View and restore previously archived courses.'
+                : 'Manage class records and track course outcome attainment for your courses'
+            }}
           </p>
         </div>
-        <button
-          @click="openAddModal"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
-        >
-          <PhPlus :size="18" weight="bold" />
-          Add Course
-        </button>
+        <div class="flex items-center gap-3">
+          <button
+            @click="toggleArchived"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            <PhArchive :size="16" weight="bold" />
+            {{ showArchived ? 'Show Active' : 'View Archived' }}
+          </button>
+          <button
+            v-if="!showArchived"
+            @click="openAddModal"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
+          >
+            <PhPlus :size="18" weight="bold" />
+            Add Course
+          </button>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -433,7 +499,7 @@ const getStatusBorderClass = (status: string) => {
                 <th
                   class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
                 >
-                  CO Attainment Status
+                  Status
                 </th>
                 <th
                   class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
@@ -481,52 +547,81 @@ const getStatusBorderClass = (status: string) => {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                   <div class="flex items-center flex-wrap gap-1">
-                    <!-- Upload Syllabus -->
-                    <button
-                      v-if="shouldShowUploadSyllabus(course.status)"
-                      @click="openSyllabusModal(course)"
-                      class="inline-flex items-center cursor-pointer gap-1.5 px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
-                    >
-                      <PhUpload :size="14" weight="bold" />
-                      Upload Syllabus
-                    </button>
+                    <!-- Active course actions (only if not archived view) -->
+                    <template v-if="!showArchived">
+                      <!-- Upload Syllabus -->
+                      <button
+                        v-if="shouldShowUploadSyllabus(course.status)"
+                        @click="openSyllabusModal(course)"
+                        class="inline-flex items-center cursor-pointer gap-1.5 px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
+                      >
+                        <PhUpload :size="14" weight="bold" />
+                        Upload Syllabus
+                      </button>
 
-                    <!-- View Class Record -->
-                    <button
-                      v-if="shouldShowViewClassRecord(course.status)"
-                      @click="handleViewClassRecord(course)"
-                      class="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
-                    >
-                      <PhBookOpen :size="14" weight="bold" />
-                      View Class Record
-                    </button>
+                      <!-- View Class Record -->
+                      <button
+                        v-if="shouldShowViewClassRecord(course.status)"
+                        @click="handleViewClassRecord(course)"
+                        class="inline-flex items-center gap-1.5 cursor-pointer px-3 py-2 text-xs font-medium rounded-lg hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 transition-colors"
+                      >
+                        <PhBookOpen :size="14" weight="bold" />
+                        View Class Record
+                      </button>
 
-                    <!-- Edit CO Scores -->
-                    <button
-                      v-if="shouldShowEditCO(course.status)"
-                      @click="openCOModal(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                      title="Edit CO Scores"
-                    >
-                      <PhChartLine :size="14" weight="bold" />
-                      Edit CO Scores
-                    </button>
+                      <!-- Edit CO Scores -->
+                      <button
+                        v-if="shouldShowEditCO(course.status)"
+                        @click="openCOModal(course)"
+                        class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
+                        title="Edit CO Scores"
+                      >
+                        <PhChartLine :size="14" weight="bold" />
+                        Edit CO Scores
+                      </button>
 
-                    <!-- Edit Course -->
-                    <button
-                      @click="openEditModal(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                      title="Edit Course"
-                    >
-                      <PhPencilSimple :size="14" weight="bold" />
-                      Edit Course
-                    </button>
+                      <!-- Edit Course -->
+                      <button
+                        @click="openEditModal(course)"
+                        class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                        title="Edit Course"
+                      >
+                        <PhPencilSimple :size="14" weight="bold" />
+                        Edit Course
+                      </button>
+
+                      <!-- Archive -->
+                      <button
+                        @click.stop="archiveCourse(course)"
+                        :disabled="archivingCourseId === course.id"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Archive course"
+                      >
+                        <PhArchive :size="14" weight="bold" />
+                        <span v-if="archivingCourseId === course.id">Archiving…</span>
+                        <span v-else>Archive</span>
+                      </button>
+                    </template>
+
+                    <!-- Archived course action -->
+                    <template v-else>
+                      <button
+                        @click.stop="unarchiveCourse(course)"
+                        :disabled="unarchivingCourseId === course.id"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
+                        title="Unarchive course"
+                      >
+                        <PhArchive :size="14" weight="bold" />
+                        <span v-if="unarchivingCourseId === course.id">Restoring…</span>
+                        <span v-else>Unarchive</span>
+                      </button>
+                    </template>
                   </div>
                 </td>
               </tr>
 
               <!-- Empty State -->
-              <tr v-if="courses.length === 0">
+              <tr v-if="displayedCourses.length === 0">
                 <td colspan="5" class="px-6 py-20">
                   <div class="flex flex-col items-center justify-center text-center">
                     <div
@@ -534,9 +629,15 @@ const getStatusBorderClass = (status: string) => {
                     >
                       <PhBookOpen :size="28" weight="bold" class="text-gray-400" />
                     </div>
-                    <h3 class="text-lg font-semibold text-gray-900">No courses yet</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                      {{ showArchived ? 'No archived courses' : 'No active courses' }}
+                    </h3>
                     <p class="mt-1 text-sm text-gray-500">
-                      Get started by adding your first course.
+                      {{
+                        showArchived
+                          ? 'Courses you archive will appear here.'
+                          : 'Get started by adding your first course.'
+                      }}
                     </p>
                   </div>
                 </td>
@@ -546,7 +647,7 @@ const getStatusBorderClass = (status: string) => {
         </div>
         <Pagination
           :currentPage="currentPage"
-          :totalItems="courses.length"
+          :totalItems="displayedCourses.length"
           :itemsPerPage="itemsPerPage"
           :alwaysShow="true"
           @page-change="handlePageChange"

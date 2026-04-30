@@ -149,3 +149,23 @@ export async function signOut(): Promise<AuthResponse<null>> {
     error: error?.message ?? null,
   }
 }
+
+export async function getFacultyUsers() {
+  const { data: session } = await supabase.auth.getSession()
+  const token = session?.session?.access_token
+  if (!token) return { data: null, error: 'Not authenticated' }
+
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-faculty`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    return { data: null, error: err.error }
+  }
+  const data = await res.json()
+  return { data, error: null }
+}

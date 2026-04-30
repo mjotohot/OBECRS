@@ -18,8 +18,9 @@ import type { Student } from '@/types/studentTypes'
 import EnrollmentModal from '@/components/commons/EnrollmentModal.vue'
 import GradeModal from '@/components/commons/GradeModal.vue'
 import { useCourseStore } from '@/stores/useCourseStore'
+import { useAuthStore } from '@/stores/useAuthStore'
 import { getGradesByEnrollments, bulkUpsertGrades } from '@/services/grades.service'
-import { PhArrowLeft, PhPlus, PhFilePdf, PhCaretDown, PhPencilSimple } from '@phosphor-icons/vue'
+import { PhArrowLeft } from '@phosphor-icons/vue'
 
 interface CourseOutcome {
   id: number
@@ -32,8 +33,6 @@ interface CourseOutcome {
 }
 
 const router = useRouter()
-const goBack = () => router.push('/faculty/courses')
-
 const showLogoutConfirm = ref(false)
 const showStudentModal = ref(false)
 const showEnrollmentModal = ref(false)
@@ -47,6 +46,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
 const store = useCourseStore()
+const authStore = useAuthStore()
 const course = store.selectedCourse
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
@@ -54,7 +54,7 @@ const isloading = ref(false)
 
 // Grade modal specific refs
 const selectedStudentForGrade = ref<Student | null>(null)
-// const gradeFormScores = ref<Record<number, string | number>>({})
+const gradeFormScores = ref<Record<number, string | number>>({})
 const savingGrade = ref(false)
 const gradeModalError = ref<string | null>(null)
 
@@ -258,6 +258,21 @@ const openGradeModalForStudentWithoutGrades = () => {
   }
 }
 
+const facultyName = computed(() => {
+  const u = authStore.user
+  return u ? `${u.first_name} ${u.last_name}` : 'Faculty'
+})
+
+const deanName = ref('DR. JAYMER M. JAYOMA')
+
+const semAy = computed(() => {
+  if (!course?.academic_year) return '1ST SEMESTER / AY 2025 - 2026'
+  // If you store semester, use it here; otherwise default to "1ST"
+  const semester = '1ST'
+  const startYear = course.academic_year - 1
+  return `${semester} SEMESTER / AY ${startYear} - ${course.academic_year}`
+})
+
 // Handle grade submission
 const handleGradeSubmit = async (scores: Record<number, string | number>) => {
   if (!selectedStudentForGrade.value || !course) return
@@ -323,16 +338,16 @@ const closeGradeModal = () => {
 }
 
 // Other modal handlers
-// const openAddModal = () => {
-//   modalMode.value = 'add'
-//   selectedStudent.value = null
-//   showStudentModal.value = true
-// }
+const openAddModal = () => {
+  modalMode.value = 'add'
+  selectedStudent.value = null
+  showStudentModal.value = true
+}
 
-// const openEnrollmentModal = (student: Student) => {
-//   selectedStudent.value = student
-//   showEnrollmentModal.value = true
-// }
+const openEnrollmentModal = (student: Student) => {
+  selectedStudent.value = student
+  showEnrollmentModal.value = true
+}
 
 const closeEnrollmentModal = () => {
   showEnrollmentModal.value = false
@@ -344,11 +359,19 @@ const handleEnrollmentSuccess = () => {
   fetchData()
 }
 
-// const openEditModal = (student: Student) => {
-//   modalMode.value = 'edit'
-//   selectedStudent.value = student
-//   showStudentModal.value = true
-// }
+const openEditModal = (student: Student) => {
+  modalMode.value = 'edit'
+  selectedStudent.value = student
+  showStudentModal.value = true
+}
+
+const openGradeModalForSelectedStudent = (event: Event) => {
+  const select = event.target as HTMLSelectElement
+  const studentId = Number(select.value)
+  if (!studentId) return
+  const student = students.value.find((s) => s.id === studentId)
+  if (student) openGradeModal(student)
+}
 
 const handleStudentSubmit = async (formData: any) => {
   if (!currentUser.value) {
@@ -476,8 +499,13 @@ const exportPDF = async () => {
     const payload = {
       students: pdfStudents.value,
       courseInfo: {
-        title: `${course?.course_code} - ${course?.course_title}` || 'Class Record',
-        semAy: '1ST SEMESTER / AY 2025 - 2026',
+        title: `${course?.course_code} – ${course?.course_title}`,
+        semAy: semAy.value, // ← dynamic
+      },
+      signatories: {
+        // ← new
+        preparedBy: facultyName.value,
+        approvedBy: deanName.value,
       },
       template: {
         coGroups: tpl.coGroups,
@@ -500,11 +528,8 @@ const exportPDF = async () => {
     }
 
     const data = await res.json()
-    if (!data.pdfBase64) {
-      throw new Error('Missing pdfBase64 in response')
-    }
+    if (!data.pdfBase64) throw new Error('Missing pdfBase64')
 
-    // Convert base64 to blob and trigger download
     const byteChars = atob(data.pdfBase64)
     const byteNums = new Array(byteChars.length)
     for (let i = 0; i < byteChars.length; i++) {
@@ -538,14 +563,16 @@ const handleLogoutConfirm = async () => {
   }
 }
 
-// const paginatedStudents = computed(() => {
-//   const start = (currentPage.value - 1) * itemsPerPage.value
-//   return students.value.slice(start, start + itemsPerPage.value)
-// })
+const paginatedStudents = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return students.value.slice(start, start + itemsPerPage.value)
+})
 
 const handlePageChange = (page: number) => {
   currentPage.value = page
 }
+
+const goBack = () => router.push('/faculty/courses')
 
 onMounted(async () => {
   currentUser.value = await getCurrentUser()
@@ -557,7 +584,7 @@ onMounted(async () => {
   <AdminLayout>
     <div class="space-y-6">
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <button
             @click="goBack"
@@ -566,21 +593,21 @@ onMounted(async () => {
             <PhArrowLeft :size="13" class="group-hover:-translate-x-0.5 transition-transform" />
             Back to Courses
           </button>
-          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+          <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
             My Class Record
           </h2>
-          <p class="mt-1 text-sm text-slate-500" v-if="course">
-            {{ course.course_code }} · {{ course.course_title }}
+          <p class="mt-1 text-gray-500" v-if="course">
+            {{ course.course_code }} - {{ course.course_title }}
           </p>
         </div>
 
-        <!-- Dropdown and Action Buttons -->
-        <div class="flex items-center gap-3">
+        <!-- Actions -->
+        <div class="flex flex-wrap items-center gap-3">
           <!-- Dropdown for students without grades -->
           <div class="relative" v-if="studentsWithoutGrades.length > 0">
             <select
-              @change="openGradeModalForStudentWithoutGrades"
-              class="appearance-none pl-3.5 pr-10 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              @change="openGradeModalForSelectedStudent"
+              class="appearance-none block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
             >
               <option value="" disabled selected>Select student without grades</option>
               <option
@@ -588,43 +615,44 @@ onMounted(async () => {
                 :key="student.id"
                 :value="student.id"
               >
-                {{ student.id_number }} - {{ student.name }}
+                {{ student.id_number }} – {{ student.name }}
               </option>
             </select>
-            <div class="pointer-events-none absolute inset-y-0 right-2 flex items-center">
-              <PhCaretDown :size="14" weight="bold" class="text-slate-400" />
+            <div
+              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"
+            >
+              <i class="fas fa-chevron-down text-xs"></i>
             </div>
           </div>
 
-          <!-- Input Grade Button -->
-          <!-- <button
+          <!-- Input Grade (opens modal for first student if no student was pre‑selected) -->
+          <button
             @click="openGradeModalForStudentWithoutGrades"
-            class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 whitespace-nowrap"
           >
-            <PhPlus :size="16" weight="bold" class="mr-1.5" />
+            <i class="fas fa-plus mr-2"></i>
             Input Grade
-          </button> -->
-          <!-- Export PDF Button -->
+          </button>
+
+          <!-- Export PDF -->
           <button
             @click="exportPDF"
             :disabled="isloading"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
           >
-            <PhFilePdf :size="16" weight="bold" class="mr-1.5" />
-            {{ isloading ? 'Generating PDF...' : 'Export to PDF' }}
+            <i class="fas fa-file-pdf mr-2"></i>
+            {{ isloading ? 'Generating...' : 'Export to PDF' }}
           </button>
         </div>
       </div>
 
-      <!-- Loading -->
+      <!-- Loading / Error -->
       <div v-if="loading" class="flex justify-center py-12">
         <div
           class="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"
         ></div>
       </div>
-
-      <!-- Error -->
-      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-xl p-4">
+      <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
         <p class="text-red-700">{{ error }}</p>
         <button @click="fetchData" class="mt-2 text-sm text-red-600 hover:text-red-800 underline">
           Try Again
@@ -632,158 +660,175 @@ onMounted(async () => {
       </div>
 
       <!-- Table -->
-      <div v-else class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200">
-          <h3 class="text-lg font-bold text-slate-900">Student Scores</h3>
-          <p class="mt-0.5 text-sm text-slate-500">
-            View scores for each assessment. Students with CO attainment below 60% are highlighted
-            in red.
+      <div v-else class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-800">Student Scores</h3>
+          <p class="text-sm text-gray-500 mt-0.5">
+            Students with any CO attainment below 60% are highlighted in light red.
           </p>
         </div>
 
-        <div class="overflow-x-auto">
-          <table class="min-w-full border-collapse text-sm">
+        <div class="overflow-x-auto max-w-full">
+          <table class="min-w-max border-collapse text-sm">
             <thead>
-              <!-- CO Group Header -->
-              <tr class="bg-white border-b border-slate-200">
+              <!-- Row 1: CO Group Headers -->
+              <tr class="bg-white border-b border-gray-200">
+                <!-- Sticky: ID (left:0) -->
                 <th
-                  class="sticky left-0 z-30 bg-white px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r border-slate-200 min-w-32 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky left-0 z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 >
                   Student No.
                 </th>
+                <!-- Sticky: Name (left = w-28 = 112px) -->
                 <th
-                  class="sticky left-32 z-30 bg-white px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r border-slate-200 min-w-48 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-44 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 112px"
                 >
                   Name
                 </th>
+                <!-- Sticky: Actions (left = 112px + w-44 = 288px) -->
                 <th
-                  class="sticky left-80 z-10 bg-white px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider border-r border-slate-200 min-w-24 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 288px"
                 >
                   Actions
                 </th>
+
                 <template v-for="coCode in coKeys" :key="coCode">
                   <th
                     :colspan="(groupedOutcomes[coCode]?.length ?? 0) + 1"
-                    class="px-4 py-3 text-center text-sm font-bold text-indigo-600 border-r border-slate-200 bg-indigo-50"
+                    class="px-4 py-3 text-center text-sm font-bold text-indigo-600 border-r border-gray-200 bg-indigo-50"
                   >
                     {{ coCode }}
                   </th>
                 </template>
                 <th
-                  class="px-4 py-3 text-center text-sm font-bold text-violet-600 border-r border-slate-200 bg-violet-50 min-w-24"
+                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 border-r border-gray-200 bg-purple-50 w-28"
                 >
                   Final WA
                 </th>
                 <th
-                  class="px-4 py-3 text-center text-sm font-bold text-violet-600 bg-violet-50 min-w-24"
+                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 bg-purple-50 w-20"
                 >
                   Grade
                 </th>
               </tr>
 
-              <!-- Course Outcome Description Header -->
-              <tr class="bg-indigo-50/40 border-b border-slate-200">
+              <!-- Row 2: Outcome descriptions -->
+              <tr class="bg-indigo-50/40 border-b border-gray-200">
+                <!-- Sticky cells (mirror offsets) -->
                 <th
-                  class="sticky left-0 z-30 bg-white border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky left-0 z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 ></th>
                 <th
-                  class="sticky left-32 z-30 bg-white border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 112px"
                 ></th>
                 <th
-                  class="sticky left-80 z-10 bg-white border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 288px"
                 ></th>
+
                 <template v-for="coCode in coKeys" :key="coCode">
                   <th
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
-                    class="px-3 py-2 text-center text-[11px] text-slate-500 font-normal border-r border-slate-100 max-w-32"
+                    class="px-3 py-2 text-center text-[11px] text-gray-500 font-normal border-r border-gray-100 max-w-[140px]"
                   >
                     <span class="line-clamp-2 block leading-tight">{{ co.co_description }}</span>
                   </th>
                   <th
-                    class="px-3 py-2 text-center text-[11px] font-semibold text-indigo-600 border-r border-slate-200 min-w-20"
+                    class="px-3 py-2 text-center text-[11px] font-semibold text-indigo-600 border-r border-gray-200 w-24"
                   >
                     Attainment
                   </th>
                 </template>
-                <th class="border-r border-slate-200 bg-violet-50/40"></th>
-                <th class="bg-violet-50/40"></th>
+                <th class="border-r border-gray-200 bg-purple-50/40"></th>
+                <th class="bg-purple-50/40"></th>
               </tr>
 
-              <!-- Weights/Max Scores Header -->
-              <tr class="bg-slate-50 border-b border-slate-200">
+              <!-- Row 3: Weight / Max scores -->
+              <tr class="bg-gray-50 border-b border-gray-200">
+                <!-- Sticky cells -->
                 <th
-                  class="sticky left-0 z-30 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky left-0 z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 ></th>
                 <th
-                  class="sticky left-32 z-30 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 112px"
                 ></th>
                 <th
-                  class="sticky left-80 z-10 bg-slate-50 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 288px"
                 ></th>
+
                 <template v-for="coCode in coKeys" :key="coCode">
                   <th
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
-                    class="px-3 py-2 text-center border-r border-slate-200"
+                    class="px-3 py-2 text-center border-r border-gray-100"
                   >
-                    <span class="block text-[11px] font-semibold text-slate-700">
+                    <span class="block text-[11px] font-semibold text-gray-700">
                       ({{ co.co_weight }}%, Max: {{ co.co_score }})
                     </span>
                   </th>
-                  <th class="border-r border-slate-200"></th>
+                  <th class="border-r border-gray-200"></th>
                 </template>
-                <th class="border-r border-slate-200"></th>
+                <th class="border-r border-gray-200"></th>
                 <th></th>
               </tr>
             </thead>
 
-            <tbody class="bg-white divide-y divide-slate-100">
+            <tbody class="bg-white divide-y divide-gray-100">
               <tr
                 v-for="student in students"
                 :key="student.id"
-                class="group transition-colors duration-150"
-                :class="
-                  isBelowThreshold(student.id) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'
-                "
+                :class="[
+                  'group transition-colors duration-150',
+                  isBelowThreshold(student.id)
+                    ? 'bg-red-50 hover:bg-red-100'
+                    : 'bg-white hover:bg-gray-50',
+                ]"
               >
-                <!-- Student No. -->
+                <!-- Sticky: ID -->
                 <td
-                  class="sticky left-0 z-20 px-4 py-3 font-semibold text-slate-900 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky left-0 z-[10] px-4 py-3 font-semibold text-gray-900 border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                   :class="
                     isBelowThreshold(student.id)
                       ? 'bg-red-50 group-hover:bg-red-100'
-                      : 'bg-white group-hover:bg-slate-50'
+                      : 'bg-white group-hover:bg-gray-50'
                   "
                 >
                   {{ student.id_number }}
                 </td>
-                <!-- Name -->
+                <!-- Sticky: Name -->
                 <td
-                  class="sticky left-32 z-10 px-4 py-3 text-slate-800 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] whitespace-nowrap"
+                  class="sticky z-[10] px-4 py-3 text-gray-800 border-r border-gray-200 w-44 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 112px"
                   :class="
                     isBelowThreshold(student.id)
                       ? 'bg-red-50 group-hover:bg-red-100'
-                      : 'bg-white group-hover:bg-slate-50'
+                      : 'bg-white group-hover:bg-gray-50'
                   "
                 >
                   {{ student.name }}
                 </td>
-                <!-- Actions -->
+                <!-- Sticky: Actions -->
                 <td
-                  class="sticky left-80 z-10 px-4 py-3 text-center border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]"
+                  class="sticky z-[10] px-4 py-3 text-center border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  style="left: 288px"
                   :class="
                     isBelowThreshold(student.id)
                       ? 'bg-red-50 group-hover:bg-red-100'
-                      : 'bg-white group-hover:bg-slate-50'
+                      : 'bg-white group-hover:bg-gray-50'
                   "
                 >
                   <button
                     @click="openGradeModal(student)"
-                    class="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    class="text-indigo-600 hover:text-indigo-800 p-1 rounded-full hover:bg-indigo-50 transition-colors"
+                    title="Edit grades"
                   >
-                    <PhPencilSimple :size="14" class="mr-1" />
-                    Edit Grades
+                    <i class="fas fa-edit"></i>
                   </button>
                 </td>
 
@@ -792,9 +837,9 @@ onMounted(async () => {
                   <td
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
-                    class="px-2 py-3 text-center border-r border-slate-200"
+                    class="px-2 py-3 text-center border-r border-gray-100"
                   >
-                    <div class="w-16 text-center px-1 py-1 text-sm font-medium text-slate-800">
+                    <div class="w-16 mx-auto px-1 py-1 text-sm font-medium text-gray-800">
                       {{ getScore(student.id, co.id) !== '' ? getScore(student.id, co.id) : '—' }}
                     </div>
                     <div class="mt-1 text-[11px]">
@@ -803,89 +848,86 @@ onMounted(async () => {
                           :class="[
                             'font-medium',
                             getScorePercentage(student.id, co) >= 60
-                              ? 'text-emerald-600'
-                              : 'text-rose-500',
+                              ? 'text-green-600'
+                              : 'text-red-500',
                           ]"
                         >
                           {{ getScorePercentage(student.id, co) }}%
                         </span>
                       </template>
-                      <span v-else class="text-slate-300">—</span>
+                      <span v-else class="text-gray-300">—</span>
                     </div>
                   </td>
-
-                  <!-- Attainment -->
-                  <td class="px-3 py-3 text-center border-r border-slate-200">
+                  <td class="px-3 py-3 text-center border-r border-gray-200">
                     <template v-if="getCoAttainment(student.id, coCode) !== null">
                       <span
                         :class="[
                           'inline-block px-2 py-0.5 rounded-full text-xs font-semibold',
                           getCoAttainment(student.id, coCode)! >= 60
-                            ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
-                            : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200',
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700',
                         ]"
                       >
                         {{ getCoAttainment(student.id, coCode) }}%
                       </span>
                     </template>
-                    <span v-else class="text-slate-300 text-xs">—</span>
+                    <span v-else class="text-gray-300 text-xs">—</span>
                   </td>
                 </template>
 
                 <!-- Final WA -->
-                <td class="px-3 py-3 text-center border-r border-slate-200 bg-violet-50/30">
+                <td class="px-3 py-3 text-center border-r border-gray-200 bg-purple-50/30 w-28">
                   <template v-if="hasFinalWA(student.id)">
                     <span
                       :class="[
                         'inline-block px-2 py-0.5 rounded-full text-xs font-semibold',
                         getFinalWA(student.id) >= 60
-                          ? 'bg-violet-100 text-violet-700 ring-1 ring-violet-200'
-                          : 'bg-rose-100 text-rose-700 ring-1 ring-rose-200',
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-red-100 text-red-700',
                       ]"
                     >
                       {{ getFinalWA(student.id) }}%
                     </span>
                   </template>
-                  <span v-else class="text-slate-300 text-xs">—</span>
+                  <span v-else class="text-gray-300 text-xs">—</span>
                 </td>
 
                 <!-- Grade -->
-                <td class="px-3 py-3 text-center bg-violet-50/30">
+                <td class="px-3 py-3 text-center bg-purple-50/30 w-20">
                   <template v-if="hasFinalWA(student.id)">
                     <div class="flex flex-col items-center gap-0.5">
-                      <span class="text-sm font-bold text-slate-800">
-                        {{ getGradeEquivalent(getFinalWA(student.id)).numerical.toFixed(2) }}
+                      <span class="text-sm font-bold text-gray-800">
+                        {{ getGradeEquivalent(getFinalWA(student.id)).numerical }}
                       </span>
                       <span
                         :class="[
-                          'text-xs font-semibold px-2 py-0.5 rounded-full ring-1',
+                          'text-xs font-semibold px-2 py-0.5 rounded-full',
                           getFinalWA(student.id) >= 60
-                            ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
-                            : 'bg-rose-100 text-rose-700 ring-rose-200',
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700',
                         ]"
                       >
                         {{ getGradeEquivalent(getFinalWA(student.id)).letter }}
                       </span>
                     </div>
                   </template>
-                  <span v-else class="text-slate-300 text-xs">—</span>
+                  <span v-else class="text-gray-300 text-xs">—</span>
                 </td>
               </tr>
 
-              <!-- Empty State -->
               <tr v-if="students.length === 0">
                 <td
                   :colspan="3 + courseOutcomes.length + coKeys.length + 2"
                   class="px-6 py-16 text-center"
                 >
-                  <div class="flex flex-col items-center justify-center text-slate-400">
+                  <div class="flex flex-col items-center justify-center text-gray-400">
                     <div
-                      class="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3"
+                      class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"
                     >
-                      <i class="fas fa-user-graduate text-xl text-slate-400"></i>
+                      <i class="fas fa-user-graduate text-xl text-gray-400"></i>
                     </div>
-                    <p class="text-sm font-medium text-slate-500">No students found.</p>
-                    <p class="text-xs text-slate-400 mt-1">
+                    <p class="text-sm font-medium text-gray-500">No students found.</p>
+                    <p class="text-xs text-gray-400 mt-1">
                       Enroll students to start recording grades.
                     </p>
                   </div>
@@ -894,6 +936,7 @@ onMounted(async () => {
             </tbody>
           </table>
         </div>
+
         <Pagination
           :currentPage="currentPage"
           :totalItems="students.length"
@@ -951,5 +994,10 @@ onMounted(async () => {
   -webkit-box-orient: vertical;
   line-clamp: 2;
   overflow: hidden;
+}
+
+/* Ensure sticky cells have a background so they don’t become transparent */
+.sticky {
+  background-color: inherit;
 }
 </style>

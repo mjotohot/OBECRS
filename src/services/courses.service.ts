@@ -1,10 +1,15 @@
 // services/course.service.ts
 import { supabase } from './supabase.service'
 import { useAcademicYearStore } from '@/stores/academicYear'
-import type {CourseFilters, CourseResponse, CourseInsert, CourseUpdate } from '../types/courseTypes'
+import type {
+  CourseFilters,
+  CourseResponse,
+  CourseInsert,
+  CourseUpdate,
+} from '../types/courseTypes'
 
 // Type definitions for the course table based on your schema
-export type CourseStatus = 'Not Started' | 'In Progress' | 'Completed'
+export type CourseStatus = 'Not Started' | 'In Progress' | 'Completed' | 'Archived'
 export interface Course {
   id: number
   adviser_id: number
@@ -15,7 +20,6 @@ export interface Course {
   academic_year: number
   status: CourseStatus
 }
-
 
 export type AuthResponse<T = any> = {
   data: T | null
@@ -30,35 +34,32 @@ export async function getAllCourses(): Promise<AuthResponse<Course[]>> {
     await academicYearStore.fetchActiveYear()
     console.log('Active Academic Year in Store:', academicYearStore.activeYear)
     const activeYearId = academicYearStore.activeYear?.id
-    
-    let query = supabase
-      .from('courses')
-      .select('*')
-      .eq('status', 'In Progress')
-  
+
+    let query = supabase.from('courses').select('*').eq('status', 'In Progress')
+
     if (activeYearId) {
       query = query.eq('academic_year', activeYearId)
     }
-    
+
     const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching courses:', error)
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     console.error('Unexpected error:', err)
     return {
       data: null,
-      error: 'Failed to fetch courses'
+      error: 'Failed to fetch courses',
     }
   }
 }
@@ -71,36 +72,33 @@ export async function getCoursesByAdviser(adviserId: number): Promise<AuthRespon
     await academicYearStore.fetchActiveYear()
     console.log('Active Academic Year in Store:', academicYearStore.activeYear)
     const activeYearId = academicYearStore.activeYear?.id
-    
-    let query = supabase
-      .from('courses')
-      .select('*')
-      .eq('adviser_id', adviserId)
-    
+
+    let query = supabase.from('courses').select('*').eq('adviser_id', adviserId)
+
     // Only filter by academic year if there's an active one
     if (activeYearId) {
       query = query.eq('academic_year', activeYearId)
     }
-    
+
     const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching courses:', error)
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     console.error('Unexpected error:', err)
     return {
       data: null,
-      error: 'Failed to fetch courses'
+      error: 'Failed to fetch courses',
     }
   }
 }
@@ -108,39 +106,35 @@ export async function getCoursesByAdviser(adviserId: number): Promise<AuthRespon
 // Get all courses for a specific adviser/faculty
 export async function getCourseOutcomeByCourse(courseId: number): Promise<AuthResponse<Course[]>> {
   try {
-  
-    
-    let query = supabase
-      .from('course_outcomes')
-      .select('*')
-      .eq('course_id', courseId)
-    
+    let query = supabase.from('course_outcomes').select('*').eq('course_id', courseId)
+
     const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching courses:', error)
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     console.error('Unexpected error:', err)
     return {
       data: null,
-      error: 'Failed to fetch courses'
+      error: 'Failed to fetch courses',
     }
   }
 }
 
-
 // Get courses with filters
-export async function getCoursesWithFilters(filters: CourseFilters): Promise<AuthResponse<Course[]>> {
+export async function getCoursesWithFilters(
+  filters: CourseFilters,
+): Promise<AuthResponse<Course[]>> {
   try {
     let query = supabase.from('courses').select('*')
 
@@ -166,18 +160,18 @@ export async function getCoursesWithFilters(filters: CourseFilters): Promise<Aut
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to fetch courses with filters'
+      error: 'Failed to fetch courses with filters',
     }
   }
 }
@@ -185,51 +179,52 @@ export async function getCoursesWithFilters(filters: CourseFilters): Promise<Aut
 // Get a single course by ID
 export async function getCourseById(courseId: number): Promise<AuthResponse<Course>> {
   try {
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('id', courseId)
-      .single()
+    const { data, error } = await supabase.from('courses').select('*').eq('id', courseId).single()
 
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course,
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to fetch course details'
+      error: 'Failed to fetch course details',
     }
   }
 }
 
-export async function createCourse(courseData: CourseInsert, adviserId: number): Promise<AuthResponse<Course>> {
+export async function createCourse(
+  courseData: CourseInsert,
+  adviserId: number,
+): Promise<AuthResponse<Course>> {
   try {
     // Validate required fields
     if (!courseData.course_code || !courseData.course_title || !courseData.section) {
       return {
         data: null,
-        error: 'Missing required fields: course_code, course_title, or section'
+        error: 'Missing required fields: course_code, course_title, or section',
       }
     }
     console.log('Creating course with data:', courseData, 'for adviser ID:', adviserId)
     const { data, error } = await supabase
       .from('courses')
-      .insert([{
-        adviser_id: adviserId, 
-        course_code: courseData.course_code,
-        course_title: courseData.course_title,
-        section: courseData.section,
-        academic_year: courseData.academic_year,
-        status: courseData.status || 'Not Started'
-      }])
+      .insert([
+        {
+          adviser_id: adviserId,
+          course_code: courseData.course_code,
+          course_title: courseData.course_title,
+          section: courseData.section,
+          academic_year: courseData.academic_year,
+          status: courseData.status || 'Not Started',
+        },
+      ])
       .select()
       .single()
 
@@ -237,26 +232,28 @@ export async function createCourse(courseData: CourseInsert, adviserId: number):
       console.error('Error creating course:', error)
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course,
-      error: null
+      error: null,
     }
   } catch (err) {
     console.error('Unexpected error:', err)
     return {
       data: null,
-      error: 'Failed to create course'
+      error: 'Failed to create course',
     }
   }
 }
 
-
 // Update an existing course
-export async function updateCourse(courseId: number, updates: CourseUpdate): Promise<AuthResponse<Course>> {
+export async function updateCourse(
+  courseId: number,
+  updates: CourseUpdate,
+): Promise<AuthResponse<Course>> {
   try {
     const { data, error } = await supabase
       .from('courses')
@@ -268,24 +265,27 @@ export async function updateCourse(courseId: number, updates: CourseUpdate): Pro
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course,
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to update course'
+      error: 'Failed to update course',
     }
   }
 }
 
 // Update course status specifically
-export async function updateCourseStatus(courseId: number, status: CourseStatus): Promise<AuthResponse<Course>> {
+export async function updateCourseStatus(
+  courseId: number,
+  status: CourseStatus,
+): Promise<AuthResponse<Course>> {
   try {
     const { data, error } = await supabase
       .from('courses')
@@ -297,18 +297,18 @@ export async function updateCourseStatus(courseId: number, status: CourseStatus)
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course,
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to update course status'
+      error: 'Failed to update course status',
     }
   }
 }
@@ -316,32 +316,31 @@ export async function updateCourseStatus(courseId: number, status: CourseStatus)
 // Delete a course
 export async function deleteCourse(courseId: number): Promise<AuthResponse<null>> {
   try {
-    const { error } = await supabase
-      .from('courses')
-      .delete()
-      .eq('id', courseId)
+    const { error } = await supabase.from('courses').delete().eq('id', courseId)
 
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: null,
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to delete course'
+      error: 'Failed to delete course',
     }
   }
 }
 
 // Get courses for the current academic year
-export async function getCurrentAcademicYearCourses(adviserId: number): Promise<AuthResponse<Course[]>> {
+export async function getCurrentAcademicYearCourses(
+  adviserId: number,
+): Promise<AuthResponse<Course[]>> {
   try {
     const currentYear = new Date().getFullYear()
     const academicYear = currentYear // Adjust this logic based on your academic year format
@@ -356,56 +355,57 @@ export async function getCurrentAcademicYearCourses(adviserId: number): Promise<
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to fetch current academic year courses'
+      error: 'Failed to fetch current academic year courses',
     }
   }
 }
 
 // Bulk insert courses (useful for importing)
-export async function bulkCreateCourses(coursesData: CourseInsert[]): Promise<AuthResponse<Course[]>> {
+export async function bulkCreateCourses(
+  coursesData: CourseInsert[],
+): Promise<AuthResponse<Course[]>> {
   try {
-    const { data, error } = await supabase
-      .from('courses')
-      .insert(coursesData)
-      .select()
+    const { data, error } = await supabase.from('courses').insert(coursesData).select()
 
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to bulk create courses'
+      error: 'Failed to bulk create courses',
     }
   }
 }
 
 // Get course statistics for a faculty member
-export async function getCourseStatistics(adviserId: number): Promise<AuthResponse<{
-  total: number
-  notStarted: number
-  inProgress: number
-  completed: number
-}>> {
+export async function getCourseStatistics(adviserId: number): Promise<
+  AuthResponse<{
+    total: number
+    notStarted: number
+    inProgress: number
+    completed: number
+  }>
+> {
   try {
     const { data, error } = await supabase
       .from('courses')
@@ -415,31 +415,34 @@ export async function getCourseStatistics(adviserId: number): Promise<AuthRespon
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     const stats = {
       total: data.length,
-      notStarted: data.filter(c => c.status === 'Not Started').length,
-      inProgress: data.filter(c => c.status === 'In Progress').length,
-      completed: data.filter(c => c.status === 'Completed').length
+      notStarted: data.filter((c) => c.status === 'Not Started').length,
+      inProgress: data.filter((c) => c.status === 'In Progress').length,
+      completed: data.filter((c) => c.status === 'Completed').length,
     }
 
     return {
       data: stats,
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to fetch course statistics'
+      error: 'Failed to fetch course statistics',
     }
   }
 }
 
 // Search courses by title or code
-export async function searchCourses(adviserId: number, searchTerm: string): Promise<AuthResponse<Course[]>> {
+export async function searchCourses(
+  adviserId: number,
+  searchTerm: string,
+): Promise<AuthResponse<Course[]>> {
   try {
     const { data, error } = await supabase
       .from('courses')
@@ -451,18 +454,18 @@ export async function searchCourses(adviserId: number, searchTerm: string): Prom
     if (error) {
       return {
         data: null,
-        error: error.message
+        error: error.message,
       }
     }
 
     return {
       data: data as Course[],
-      error: null
+      error: null,
     }
   } catch (err) {
     return {
       data: null,
-      error: 'Failed to search courses'
+      error: 'Failed to search courses',
     }
   }
 }

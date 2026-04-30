@@ -10,7 +10,7 @@ export interface Course {
   section: string
   created_at: string
   academic_year: number
-  status : 'Not Started' | 'In Progress' | 'Completed'
+  status: 'Not Started' | 'In Progress' | 'Completed' | 'Archived'
 }
 
 export const useCourseStore = defineStore('course', () => {
@@ -27,6 +27,6 @@ export const useCourseStore = defineStore('course', () => {
   return {
     selectedCourse,
     setCourse,
-    clearCourse
+    clearCourse,
   }
 })

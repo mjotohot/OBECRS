@@ -13,6 +13,7 @@ import Dashboard from '@/views/chairperson/Dashboard.vue'
 import ClassRecord from '@/views/chairperson/ClassRecord.vue'
 import StudentsRecords from '@/views/faculty/Students-Reports.vue'
 import ViewGrades from '@/views/chairperson/ViewGrades.vue'
+import CreateFaculty from '@/views/chairperson/CreateFaculty.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -53,6 +54,12 @@ const routes = [
     name: 'ChairpersonClassRecord',
     component: ViewGrades,
     meta: { requiresChairperson: true },
+  },
+  {
+    path: '/chairperson/create-faculty',
+    name: 'FacultyManagement',
+    component: CreateFaculty,
+    meta: { requiresAuth: true, role: 'Chairperson' },
   },
 ]
 
