@@ -1,26 +1,34 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop -->
-    <div class="absolute inset-0 backdrop-blur-xs bg-opacity-50" @click="handleClose"></div>
-    
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="handleClose"></div>
+
     <!-- Modal Content -->
-    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold text-gray-900">
-          <i :class="mode === 'edit' ? 'fas fa-edit' : 'fas fa-user-plus'" class="mr-2"></i>
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <component
+            :is="mode === 'edit' ? PhPencilSimple : PhUserPlus"
+            :size="22"
+            weight="bold"
+            class="text-indigo-600"
+          />
           {{ mode === 'edit' ? 'Edit Student' : 'Add New Student' }}
         </h3>
-        <button 
+        <button
           @click="handleClose"
-          class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+          class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
         >
-          ×
+          <PhX :size="20" weight="bold" />
         </button>
       </div>
-      
-      <form @submit.prevent="handleSubmit">
-          <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+      <!-- Body -->
+      <form @submit.prevent="handleSubmit" class="px-6 py-5 space-y-5">
+        <!-- ID Number -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             ID Number <span class="text-red-500">*</span>
           </label>
           <input
@@ -28,17 +36,25 @@
             type="text"
             placeholder="e.g., 201-00001"
             :class="[
-              'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-              formErrors.id_number  ? 'border-red-500' : 'border-gray-300'
+              'w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors placeholder:text-gray-400',
+              formErrors.id_number
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-gray-300',
             ]"
             required
           />
-          <p v-if="formErrors.id_number" class="mt-1 text-xs text-red-500">
+          <p
+            v-if="formErrors.id_number"
+            class="mt-1.5 text-xs text-red-500 flex items-center gap-1"
+          >
+            <PhWarningCircle :size="14" weight="bold" />
             {{ formErrors.id_number }}
           </p>
         </div>
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+        <!-- Student Name -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             Student Name <span class="text-red-500">*</span>
           </label>
           <input
@@ -46,21 +62,25 @@
             type="text"
             placeholder="e.g., John Doe"
             :class="[
-              'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-              formErrors.name ? 'border-red-500' : 'border-gray-300'
+              'w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors placeholder:text-gray-400',
+              formErrors.name
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-gray-300',
             ]"
             required
           />
-          <p v-if="formErrors.name" class="mt-1 text-xs text-red-500">
+          <p v-if="formErrors.name" class="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+            <PhWarningCircle :size="14" weight="bold" />
             {{ formErrors.name }}
           </p>
         </div>
-        
-        <div class="flex justify-end space-x-3 mt-6">
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
             @click="handleClose"
-            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -68,12 +88,20 @@
             type="submit"
             :disabled="loading"
             :class="[
-              'px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50',
-              mode === 'edit' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              'px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2',
+              mode === 'edit'
+                ? 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
+                : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
+              'focus:outline-none focus:ring-2 focus:ring-offset-2',
             ]"
           >
-            <i v-if="loading" class="fas fa-spinner fa-pulse mr-2"></i>
-            {{ loading ? (mode === 'edit' ? 'Updating...' : 'Adding...') : (mode === 'edit' ? 'Update Student' : 'Add Student') }}
+            <PhSpinner v-if="loading" :size="18" class="animate-spin" />
+            <template v-if="loading">
+              {{ mode === 'edit' ? 'Updating...' : 'Adding...' }}
+            </template>
+            <template v-else>
+              {{ mode === 'edit' ? 'Update Student' : 'Add Student' }}
+            </template>
           </button>
         </div>
       </form>
@@ -83,6 +111,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
+import { PhUserPlus, PhPencilSimple, PhX, PhSpinner, PhWarningCircle } from '@phosphor-icons/vue'
 
 interface Props {
   isOpen: boolean
@@ -100,7 +129,7 @@ const props = withDefaults(defineProps<Props>(), {
   isOpen: false,
   mode: 'add',
   student: null,
-  loading: false
+  loading: false,
 })
 
 const emit = defineEmits<Emits>()
@@ -129,18 +158,25 @@ const resetForm = () => {
 }
 
 // Watch for modal open
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    resetForm()
-  }
-})
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      resetForm()
+    }
+  },
+)
 
 // Watch for student prop changes (for edit mode)
-watch(() => props.student, () => {
-  if (props.isOpen && props.mode === 'edit' && props.student) {
-    resetForm()
-  }
-}, { deep: true })
+watch(
+  () => props.student,
+  () => {
+    if (props.isOpen && props.mode === 'edit' && props.student) {
+      resetForm()
+    }
+  },
+  { deep: true },
+)
 
 // Validate form
 const validateForm = (): boolean => {

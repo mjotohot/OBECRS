@@ -12,41 +12,44 @@ const iconMap = {
 </script>
 
 <template>
-  <div class="fixed top-4 right-4 z-50 flex flex-col items-end space-y-2 pointer-events-none">
+  <div class="fixed top-4 right-4 z-50 flex flex-col items-end space-y-3 pointer-events-none">
     <div
       v-for="toast in toasts"
       :key="toast.id"
       role="status"
-      class="pointer-events-auto w-80 max-w-[90vw] backdrop-blur-md bg-white/10 border border-white/20 rounded-xl shadow-2xl overflow-hidden"
+      class="pointer-events-auto w-80 max-w-[90vw] bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden animate-slide-down"
     >
-      <div class="flex items-start gap-3 p-3">
+      <div class="flex items-start gap-3 px-4 py-3">
+        <!-- Icon -->
         <component
           :is="iconMap[toast.type]"
           :size="20"
           weight="fill"
           class="shrink-0 mt-0.5"
           :class="{
-            'text-emerald-400': toast.type === 'success',
-            'text-rose-400': toast.type === 'error',
-            'text-blue-400': toast.type === 'info',
+            'text-emerald-500': toast.type === 'success',
+            'text-rose-500': toast.type === 'error',
+            'text-blue-500': toast.type === 'info',
           }"
         />
-        <div class="flex-1 text-sm text-white font-medium leading-tight">
+        <!-- Message -->
+        <p class="flex-1 text-sm text-gray-800 font-medium leading-snug pr-1">
           {{ toast.message }}
-        </div>
+        </p>
+        <!-- Close button -->
         <button
           @click="removeToast(toast.id)"
-          class="shrink-0 text-white/60 hover:text-white transition-colors"
+          class="shrink-0 p-1 -mr-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           aria-label="Dismiss notification"
         >
-          <PhX :size="16" weight="bold" />
+          <PhX :size="14" weight="bold" />
         </button>
       </div>
 
-      <!-- Progress bar container -->
-      <div class="h-1 w-full bg-white/10">
+      <!-- Progress bar -->
+      <div class="h-0.5 w-full bg-gray-100">
         <div
-          class="progress-bar h-full"
+          class="h-full rounded-full progress-bar"
           :class="{
             'bg-emerald-400': toast.type === 'success',
             'bg-rose-400': toast.type === 'error',
@@ -60,17 +63,17 @@ const iconMap = {
 
 <style scoped>
 .animate-slide-down {
-  animation: slideDown 0.2s ease-out forwards;
+  animation: slideDown 0.25s cubic-bezier(0.21, 1.02, 0.58, 1) forwards;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-1rem);
+    transform: translateX(2rem);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 

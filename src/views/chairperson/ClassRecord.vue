@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { signOut } from '@/services/auth.service'
 import {
-  getCoursesByAdviser,
+  getAllCourses,
   createCourse,
   updateCourse,
   type Course,
@@ -85,7 +85,7 @@ const fetchCourses = async () => {
     }
 
     currentUser.value = userResponse.data
-    const coursesResponse = await getCoursesByAdviser(+userResponse.data.id)
+    const coursesResponse = await getAllCourses()
 
     if (coursesResponse.error) {
       error.value = coursesResponse.error
@@ -229,19 +229,12 @@ const handleSyllabusUpload = async (file: File) => {
     }
 
     showSyllabusModal.value = false
-    // Clear selected file and show success message
     alert(
       `Syllabus uploaded successfully! ${extractedData.assessments.length} course outcomes extracted.`,
     )
   } catch (err) {
     console.error('Error uploading syllabus:', err)
-    
-    // Custom error message for missing assessments
-    if (err instanceof Error && err.message.includes('missing assessment tasks')) {
-      syllabusError.value = 'The syllabus is missing complete assessment task information. Please ensure the syllabus contains a detailed "Assessment Weights" table with all required tasks and their weights before uploading.'
-    } else {
-      syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
-    }
+    syllabusError.value = err instanceof Error ? err.message : 'Failed to process syllabus'
   } finally {
     syllabusUploading.value = false
   }
@@ -306,7 +299,7 @@ const handleLogoutConfirm = async () => {
 const handleViewClassRecord = (course: Course) => {
   store.setCourse(course)
   router.push({
-    name: 'FacultyClassRecord',
+    name: 'ChairpersonClassRecord',
     params: { courseId: course.id },
   })
 }
@@ -321,7 +314,6 @@ const handleCOReport = (course: Course) => {
 
 // Determine which buttons to show based on status
 const shouldShowUploadSyllabus = (status: string) => status === 'Not Started'
-const shouldShowEditCO = (status: string) => status === 'In Progress' || status === 'Completed'
 const shouldShowViewClassRecord = (status: string) => status !== 'Not Started'
 const shouldShowCOReport = (status: string) => status !== 'Not Started'
 
@@ -376,19 +368,12 @@ const getStatusBorderClass = (status: string) => {
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
         <div>
           <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-gray-900">
-            My Active Courses
+            Class Records
           </h2>
           <p class="mt-2 text-base text-gray-500 max-w-2xl">
-            Manage class records and track course outcome attainment for your courses
+            Manage class records for other courses and monitor student performance.
           </p>
         </div>
-        <button
-          @click="openAddModal"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
-        >
-          <PhPlus :size="18" weight="bold" />
-          Add Course
-        </button>
       </div>
 
       <!-- Loading State -->
@@ -499,37 +484,6 @@ const getStatusBorderClass = (status: string) => {
                     >
                       <PhBookOpen :size="14" weight="bold" />
                       View Class Record
-                    </button>
-
-                    <!-- Edit CO Scores -->
-                    <button
-                       v-if="shouldShowViewClassRecord(course.status)"
-                      @click="openCOModal(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
-                      title="Edit CO Scores"
-                    >
-                      <PhChartLine :size="14" weight="bold" />
-                      Edit CO Scores
-                    </button>
-
-                    <!-- CO Report -->
-                    <button
-                      v-if="shouldShowCOReport(course.status)"
-                      @click="handleCOReport(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
-                    >
-                      <PhFileText :size="14" weight="bold" />
-                      CO Report
-                    </button>
-
-                    <!-- Edit Course -->
-                    <button
-                      @click="openEditModal(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                      title="Edit Course"
-                    >
-                      <PhPencilSimple :size="14" weight="bold" />
-                      Edit Course
                     </button>
                   </div>
                 </td>

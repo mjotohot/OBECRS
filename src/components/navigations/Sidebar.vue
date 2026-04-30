@@ -3,8 +3,17 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppModal from '../commons/AppModal.vue'
 import navImage from '@/assets/images/navbar.svg'
+import avatarImage from '@/assets/images/avatar.jpg'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { PhList, PhX, PhSignOut, PhUsers, PhPen, PhPrinter } from '@phosphor-icons/vue'
+import {
+  PhList,
+  PhX,
+  PhSignOut,
+  PhUsers,
+  PhPen,
+  PhPrinter,
+  PhListChecks,
+} from '@phosphor-icons/vue'
 
 defineProps<{
   isOpen: boolean
@@ -19,6 +28,7 @@ const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const showLogoutConfirm = ref(false)
+const isLoggingOut = ref(false)
 
 const navigationItems = computed(() => {
   const user_role = auth.role
@@ -26,12 +36,16 @@ const navigationItems = computed(() => {
     return []
   }
   if (user_role === 'Chairperson') {
-    return []
+    return [
+       { name: 'My Courses', href: '/chairperson/dashboard', icon: PhPen },
+        { name: 'Class Records', href: '/chairperson/class-record', icon: PhUsers },
+        { name: 'Reports', href: '/chairperson/reports', icon: PhListChecks },
+    ]
   }
   if (user_role === 'Faculty') {
     return [
-      { name: 'Courses', href: '/faculty/courses', icon: PhPen },
-      { name: 'Students', href: '/faculty/students', icon: PhUsers },
+      { name: 'My Courses', href: '/faculty/courses', icon: PhPen },
+      { name: 'My Students', href: '/faculty/students', icon: PhUsers },
       { name: 'Reports', href: '/faculty/reports', icon: PhPrinter },
     ]
   }
@@ -42,12 +56,17 @@ function isActive(href: string) {
 }
 
 const handleLogout = async () => {
-  await auth.StoreLogout()
-  router.push('/')
-  showLogoutConfirm.value = false
+  isLoggingOut.value = true
+  try {
+    await auth.StoreLogout()
+    router.push('/')
+  } finally {
+    isLoggingOut.value = false
+    showLogoutConfirm.value = false
+  }
 }
 
-const defaultAvatar = 'https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp'
+const defaultAvatar = avatarImage
 </script>
 
 <template>
@@ -101,7 +120,7 @@ const defaultAvatar = 'https://img.daisyui.com/images/stock/photo-1534528741775-
     <div class="border-t-2 border-[#ff9900] p-4">
       <div :class="['flex items-center mb-4', isOpen ? 'space-x-3' : 'justify-center']">
         <img
-          class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center"
+          class="w-11 h-11 bg-gray-200 rounded-full flex items-center justify-center"
           :src="defaultAvatar"
           alt="user"
         />
@@ -120,16 +139,15 @@ const defaultAvatar = 'https://img.daisyui.com/images/stock/photo-1534528741775-
         <span v-if="isOpen">Logout</span>
       </button>
     </div>
-       <AppModal
+    <AppModal
       :isOpen="showLogoutConfirm"
       title="Logout Confirmation"
       message="Are you sure you want to logout? You will be redirected to the home page."
       confirmLabel="Logout"
       cancelLabel="Cancel"
+      :loading="isLoggingOut"
       @confirm="handleLogout"
       @cancel="showLogoutConfirm = false"
     />
   </aside>
-
- 
 </template>

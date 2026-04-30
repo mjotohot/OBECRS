@@ -1,26 +1,34 @@
 <template>
-  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+  <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <!-- Backdrop -->
-    <div class="absolute inset-0 backdrop-blur-xs bg-opacity-50" @click="handleClose"></div>
-    
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="handleClose"></div>
+
     <!-- Modal Content -->
-    <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold text-gray-900">
-          <i :class="mode === 'edit' ? 'fas fa-edit' : 'fas fa-plus-circle'" class="mr-2"></i>
+    <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <component
+            :is="mode === 'edit' ? PhPencil : PhPlusCircle"
+            :size="22"
+            weight="bold"
+            class="text-indigo-600"
+          />
           {{ mode === 'edit' ? 'Edit Course' : 'Add New Course' }}
         </h3>
-        <button 
+        <button
           @click="handleClose"
-          class="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+          class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1.5 transition-colors"
         >
-          ×
+          <PhX :size="20" weight="bold" />
         </button>
       </div>
-      
-      <form @submit.prevent="handleSubmit">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+      <!-- Body -->
+      <form @submit.prevent="handleSubmit" class="px-6 py-5 space-y-5">
+        <!-- Course Code -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             Course Code <span class="text-red-500">*</span>
           </label>
           <input
@@ -29,19 +37,28 @@
             placeholder="e.g., CS 101"
             :disabled="mode === 'edit' && disableCodeEdit"
             :class="[
-              'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-              formErrors.course_code ? 'border-red-500' : 'border-gray-300',
-              (mode === 'edit' && disableCodeEdit) ? 'bg-gray-100 cursor-not-allowed' : ''
+              'w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors placeholder:text-gray-400',
+              formErrors.course_code
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-gray-300',
+              mode === 'edit' && disableCodeEdit
+                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                : 'bg-white',
             ]"
             required
           />
-          <p v-if="formErrors.course_code" class="mt-1 text-xs text-red-500">
+          <p
+            v-if="formErrors.course_code"
+            class="mt-1.5 text-xs text-red-500 flex items-center gap-1"
+          >
+            <PhWarningCircle :size="14" weight="bold" />
             {{ formErrors.course_code }}
           </p>
         </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+        <!-- Course Title -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             Course Title <span class="text-red-500">*</span>
           </label>
           <input
@@ -49,18 +66,25 @@
             type="text"
             placeholder="e.g., Introduction to Computer Science"
             :class="[
-              'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-              formErrors.course_title ? 'border-red-500' : 'border-gray-300'
+              'w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors placeholder:text-gray-400',
+              formErrors.course_title
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-gray-300',
             ]"
             required
           />
-          <p v-if="formErrors.course_title" class="mt-1 text-xs text-red-500">
+          <p
+            v-if="formErrors.course_title"
+            class="mt-1.5 text-xs text-red-500 flex items-center gap-1"
+          >
+            <PhWarningCircle :size="14" weight="bold" />
             {{ formErrors.course_title }}
           </p>
         </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+        <!-- Section -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             Section <span class="text-red-500">*</span>
           </label>
           <input
@@ -68,63 +92,71 @@
             type="text"
             placeholder="e.g., A, B, or 1, 2, 3"
             :class="[
-              'w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500',
-              formErrors.section ? 'border-red-500' : 'border-gray-300'
+              'w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors placeholder:text-gray-400',
+              formErrors.section
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-gray-300',
             ]"
             required
           />
-          <p v-if="formErrors.section" class="mt-1 text-xs text-red-500">
+          <p v-if="formErrors.section" class="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+            <PhWarningCircle :size="14" weight="bold" />
             {{ formErrors.section }}
           </p>
         </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
+
+        <!-- Academic Year -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">
             Academic Year <span class="text-red-500">*</span>
           </label>
           <select
             v-model="selectedAcademicYearId"
             @change="updateAcademicYearId"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors bg-white"
             :disabled="academicYearsLoading"
             required
           >
             <option :value="null">Select Academic Year</option>
-            <option 
-              v-for="year in academicYears" 
-              :key="year.id" 
-              :value="year.id"
-            >
+            <option v-for="year in academicYears" :key="year.id" :value="year.id">
               {{ year.year }} - {{ year.semester }} {{ year.isActive ? '(Active)' : '' }}
             </option>
           </select>
-          <p v-if="formErrors.academic_year_id" class="mt-1 text-xs text-red-500">
-            {{ formErrors.academic_year_id }}
+          <p
+            v-if="formErrors.academic_year"
+            class="mt-1.5 text-xs text-red-500 flex items-center gap-1"
+          >
+            <PhWarningCircle :size="14" weight="bold" />
+            {{ formErrors.academic_year }}
           </p>
-          <p v-if="academicYearsLoading" class="mt-1 text-xs text-gray-500">
+          <p
+            v-if="academicYearsLoading"
+            class="mt-1.5 text-xs text-gray-500 flex items-center gap-1"
+          >
+            <PhSpinner :size="14" class="animate-spin" />
             Loading academic years...
           </p>
         </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Status
-          </label>
+
+        <!-- Status -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5"> Status </label>
           <select
             v-model="formData.status"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors bg-white"
           >
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
             <option value="Completed">Completed</option>
           </select>
         </div>
-        
-        <div class="flex justify-end space-x-3 mt-6">
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
             @click="handleClose"
-            class="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
           >
             Cancel
           </button>
@@ -132,12 +164,20 @@
             type="submit"
             :disabled="loading"
             :class="[
-              'px-4 py-2 text-white rounded-md transition-colors disabled:opacity-50',
-              mode === 'edit' ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              'px-5 py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2',
+              mode === 'edit'
+                ? 'bg-amber-600 hover:bg-amber-700 focus:ring-amber-500'
+                : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500',
+              'focus:outline-none focus:ring-2 focus:ring-offset-2',
             ]"
           >
-            <i v-if="loading" class="fas fa-spinner fa-pulse mr-2"></i>
-            {{ loading ? (mode === 'edit' ? 'Updating...' : 'Adding...') : (mode === 'edit' ? 'Update Course' : 'Add Course') }}
+            <PhSpinner v-if="loading" :size="18" class="animate-spin" />
+            <template v-if="loading">
+              {{ mode === 'edit' ? 'Updating...' : 'Adding...' }}
+            </template>
+            <template v-else>
+              {{ mode === 'edit' ? 'Update Course' : 'Add Course' }}
+            </template>
           </button>
         </div>
       </form>
@@ -146,9 +186,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, computed } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { useAcademicYearStore } from '@/stores/academicYear'
 import { storeToRefs } from 'pinia'
+import { PhPencil, PhPlusCircle, PhX, PhSpinner, PhWarningCircle } from '@phosphor-icons/vue'
 
 interface Props {
   isOpen: boolean
@@ -168,101 +209,91 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'add',
   course: null,
   loading: false,
-  disableCodeEdit: true
+  disableCodeEdit: true,
 })
 
 const emit = defineEmits<Emits>()
 
-// Academic Year Store
 const academicYearStore = useAcademicYearStore()
 const { allYears: academicYears, isLoading: academicYearsLoading } = storeToRefs(academicYearStore)
 
-// Separate ref for selected academic year ID to ensure reactivity
 const selectedAcademicYearId = ref<number | null>(null)
 
-// Form data
 const formData = reactive({
   course_code: '',
   course_title: '',
   section: '',
-  academic_year_id: null as number | null,
-  status: 'Not Started'
+  academic_year: null as number | null,
+  status: 'Not Started',
 })
 
-// Form errors
 const formErrors = reactive({
   course_code: '',
   course_title: '',
   section: '',
-  academic_year_id: ''
+  academic_year: '',
 })
 
-// Update function to sync selected value with form data
 const updateAcademicYearId = () => {
-  formData.academic_year_id = selectedAcademicYearId.value
-  console.log('Selected academic year ID:', selectedAcademicYearId.value) // Debug log
-  console.log('Form data academic_year_id:', formData.academic_year_id) // Debug log
+  formData.academic_year = selectedAcademicYearId.value
 }
 
-// Load academic years when modal opens
 const loadAcademicYears = async () => {
   if (academicYears.value.length === 0) {
     await academicYearStore.fetchAllYears()
   }
 }
 
-// Reset form
 const resetForm = () => {
   if (props.mode === 'edit' && props.course) {
     formData.course_code = props.course.course_code || ''
     formData.course_title = props.course.course_title || ''
     formData.section = props.course.section || ''
-    formData.academic_year_id = props.course.academic_year_id || null
+    formData.academic_year = props.course.academic_year || null
     formData.status = props.course.status || 'Not Started'
-    
-    // Sync the selected value with form data
-    selectedAcademicYearId.value = formData.academic_year_id
+    selectedAcademicYearId.value = formData.academic_year
   } else {
     formData.course_code = ''
     formData.course_title = ''
     formData.section = ''
-    formData.academic_year_id = null
+    formData.academic_year = null
     formData.status = 'Not Started'
-    
-    // Reset selected value
     selectedAcademicYearId.value = null
   }
-  
+
   formErrors.course_code = ''
   formErrors.course_title = ''
   formErrors.section = ''
-  formErrors.academic_year_id = ''
+  formErrors.academic_year = ''
 }
 
-// Watch for modal open
-watch(() => props.isOpen, async (newVal) => {
-  if (newVal) {
-    await loadAcademicYears()
-    resetForm()
-  }
-})
+watch(
+  () => props.isOpen,
+  async (newVal) => {
+    if (newVal) {
+      await loadAcademicYears()
+      resetForm()
+    }
+  },
+)
 
-// Watch for course prop changes (for edit mode)
-watch(() => props.course, () => {
-  if (props.isOpen && props.mode === 'edit' && props.course) {
-    resetForm()
-  }
-}, { deep: true })
+watch(
+  () => props.course,
+  () => {
+    if (props.isOpen && props.mode === 'edit' && props.course) {
+      resetForm()
+    }
+  },
+  { deep: true },
+)
 
-// Validate form
 const validateForm = (): boolean => {
   let isValid = true
-  
   formErrors.course_code = ''
   formErrors.course_title = ''
   formErrors.section = ''
-  formErrors.academic_year_id = ''
-  
+  formErrors.academic_year = ''
+
   if (!formData.course_code.trim()) {
     formErrors.course_code = 'Course code is required'
     isValid = false
@@ -270,7 +301,7 @@ const validateForm = (): boolean => {
     formErrors.course_code = 'Course code must be at least 2 characters'
     isValid = false
   }
-  
+
   if (!formData.course_title.trim()) {
     formErrors.course_title = 'Course title is required'
     isValid = false
@@ -278,40 +309,32 @@ const validateForm = (): boolean => {
     formErrors.course_title = 'Course title must be at least 3 characters'
     isValid = false
   }
-  
+
   if (!formData.section.trim()) {
     formErrors.section = 'Section is required'
     isValid = false
   }
-  
-  if (!formData.academic_year_id) {
-    formErrors.academic_year_id = 'Please select an academic year'
+
+  if (!formData.academic_year) {
+    formErrors.academic_year = 'Please select an academic year'
     isValid = false
   }
-  
+
   return isValid
 }
 
-// Handle form submission
 const handleSubmit = () => {
   if (validateForm()) {
-    // Make sure academic_year_id is up to date
-    formData.academic_year_id = selectedAcademicYearId.value
-    
-    console.log('Submitting form data:', { ...formData }) // Debug log
-    
-    // Submit the form data with academic_year_id
+    formData.academic_year = selectedAcademicYearId.value
     emit('submit', { ...formData })
   }
 }
 
-// Handle modal close
 const handleClose = () => {
   resetForm()
   emit('close')
 }
 
-// Initial load if needed
 onMounted(() => {
   loadAcademicYears()
 })
