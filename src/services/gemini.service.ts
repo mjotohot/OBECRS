@@ -85,7 +85,6 @@ IF ALL tasks found:
         "task": "Laboratory Activity 1",
         "task_weight_within_category": "9.09%",
         "final_co_contribution": 0.909,
-        "domain": "Psychomotor"
       }
     ]
   }
@@ -210,7 +209,7 @@ export const insertCourseOutcomes = async (
       co_code: a.co,
       co_description: a.task,
       co_score: null,
-      co_weight: a.final_co_contribution / 100,
+      co_weight: a.final_co_contribution,
       created_at: new Date().toISOString()
     }))
 

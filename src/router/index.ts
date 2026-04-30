@@ -12,6 +12,8 @@ import sampleRecord from '@/views/faculty/sampleRecord.vue'
 import COReport from '@/views/faculty/Reports.vue'
 import Dashboard from '@/views/chairperson/Dashboard.vue'
 import ClassRecord from '@/views/chairperson/ClassRecord.vue'
+import StudentsRecords from '@/views/faculty/Students-Reports.vue'
+import ViewGrades from '@/views/chairperson/ViewGrades.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -20,11 +22,11 @@ const routes = [
   { path: '/reset-password', component: ResetPassword },
   { path: '/faculty/courses', component: Courses, meta: { requiresFaculty: true } },
   { path: '/faculty/students', component: Students, meta: { requiresFaculty: true } },
+  { path: '/faculty/reports', component: StudentsRecords, meta: { requiresFaculty: true } },
   {
     path: '/faculty/courses/:courseId/class-record',
     name: 'FacultyClassRecord',
     component: ClassRecords,
-    meta: { requiresFaculty: true },
   },
   { path: '/faculty/sample', component: sampleRecord, meta: { requiresFaculty: true } },
   {
@@ -36,6 +38,7 @@ const routes = [
 
   //Chairperson routes
   { path: '/chairperson/dashboard', component: Dashboard, meta: { requiresChairperson: true } },
+  { path: '/chairperson/reports', component: StudentsRecords, meta: { requiresChairperson: true } },
   {
     path: '/chairperson/class-record',
     component: ClassRecord,
@@ -50,7 +53,7 @@ const routes = [
   {
     path: '/chairperson/courses/:courseId/class-record',
     name: 'ChairpersonClassRecord',
-    component: ClassRecords,
+    component: ViewGrades,
     meta: { requiresChairperson: true },
   },
 ]

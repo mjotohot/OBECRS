@@ -61,32 +61,17 @@ const enrollmentMap = ref<Record<number, number>>({})
 // scores: studentId -> coId -> score value
 const scores = ref<Record<number, Record<number, number>>>({})
 
-// Group outcomes by co_code and sort by id
+// Group outcomes by co_code
 const groupedOutcomes = computed(() => {
   const groups: Record<string, CourseOutcome[]> = {}
   for (const co of courseOutcomes.value) {
     if (!groups[co.co_code]) groups[co.co_code] = []
     groups[co.co_code]?.push(co)
   }
-  
-  // Sort each group by id
-  for (const coCode in groups) {
-    groups[coCode]!.sort((a, b) => a.id - b.id)
-  }
-  
   return groups
 })
 
-// Sort CO keys alphabetically or by the first outcome's id in each group
-const coKeys = computed(() => {
-  const keys = Object.keys(groupedOutcomes.value)
-  // Sort by the minimum id in each group to maintain order
-  return keys.sort((a, b) => {
-    const minIdA = Math.min(...(groupedOutcomes.value[a]?.map(co => co.id) || [Infinity]))
-    const minIdB = Math.min(...(groupedOutcomes.value[b]?.map(co => co.id) || [Infinity]))
-    return minIdA - minIdB
-  })
-})
+const coKeys = computed(() => Object.keys(groupedOutcomes.value))
 
 // Get students without any grades
 const studentsWithoutGrades = computed(() => {
@@ -119,11 +104,7 @@ const fetchData = async () => {
     ])
 
     if (outcomesRes.error) error.value = outcomesRes.error
-    else {
-      // Sort outcomes by id when fetching
-      const outcomes = (outcomesRes.data as unknown as CourseOutcome[]) || []
-      courseOutcomes.value = outcomes.sort((a, b) => a.id - b.id)
-    }
+    else courseOutcomes.value = (outcomesRes.data as unknown as CourseOutcome[]) || []
 
     if (studentsRes.error) error.value = studentsRes.error
     else students.value = studentsRes.data || []
@@ -170,6 +151,7 @@ const fetchData = async () => {
     loading.value = false
   }
 }
+
 const getScore = (studentId: number, coId: number) => {
   return scores.value[studentId]?.[coId] ?? ''
 }
@@ -585,29 +567,6 @@ onMounted(async () => {
               <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
             </div>
           </div>
-
-          <!-- Input Grade Button -->
-          <button
-            @click="openGradeModalForStudentWithoutGrades"
-            class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          >
-            <i class="fas fa-plus mr-2"></i>
-            Input Grade
-          </button>
-          <button
-            @click="exportPDF"
-            :disabled="isloading"
-            style="
-              padding: 8px 16px;
-              background-color: #2563eb;
-              color: white;
-              border: none;
-              border-radius: 4px;
-              cursor: pointer;
-            "
-          >
-            {{ isloading ? 'Generating PDF...' : 'Export to PDF' }}
-          </button>
         </div>
       </div>
 

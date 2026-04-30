@@ -10,6 +10,7 @@ export interface Course {
   section: string
   created_at: string
   academic_year: number
+  status : 'Not Started' | 'In Progress' | 'Completed'
 }
 
 export const useCourseStore = defineStore('course', () => {

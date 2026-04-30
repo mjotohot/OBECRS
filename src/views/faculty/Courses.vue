@@ -512,16 +512,6 @@ const getStatusBorderClass = (status: string) => {
                       Edit CO Scores
                     </button>
 
-                    <!-- CO Report -->
-                    <button
-                      v-if="shouldShowCOReport(course.status)"
-                      @click="handleCOReport(course)"
-                      class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
-                    >
-                      <PhFileText :size="14" weight="bold" />
-                      CO Report
-                    </button>
-
                     <!-- Edit Course -->
                     <button
                       @click="openEditModal(course)"

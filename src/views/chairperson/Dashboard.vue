@@ -306,7 +306,7 @@ const handleLogoutConfirm = async () => {
 const handleViewClassRecord = (course: Course) => {
   store.setCourse(course)
   router.push({
-    name: 'ChairpersonClassRecord',
+    name: 'FacultyClassRecord',
     params: { courseId: course.id },
   })
 }
