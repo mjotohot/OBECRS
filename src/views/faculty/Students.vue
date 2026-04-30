@@ -61,7 +61,7 @@ const fetchStudents = async () => {
       return
     }
 
-    const studentsData = studentsResponse.data || []
+    const studentsData: Student[] = studentsResponse.data || []
     const studentIds = studentsData.map((s) => s.id)
     const coursesByStudent = await getEnrolledCoursesByStudentIds(studentIds)
 
@@ -196,7 +196,7 @@ const handleDeleteStudent = async (student: Student) => {
   }
 }
 
-const getStatusBorderClass = (status: string) => {
+const getStatusBorderClass = (status?: string) => {
   switch (status) {
     case 'Active':
       return 'border-l-emerald-400'

@@ -4,7 +4,11 @@ import { useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/useCourseStore'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import { getStudentsByCourse, getEnrollmentsByCourse } from '@/services/student.service'
-import { getCourseOutcomeByCourse, getCoursesByAdviser, type Course } from '@/services/courses.service'
+import {
+  getCourseOutcomeByCourse,
+  getCoursesByAdviser,
+  type Course,
+} from '@/services/courses.service'
 import { getGradesByEnrollments } from '@/services/grades.service'
 import { getCurrentUser } from '@/services/auth.service'
 import type { Student } from '@/types/studentTypes'
@@ -161,7 +165,7 @@ const fetchAllCourses = async () => {
     } else {
       // Filter courses that have status "In Progress" or "Completed" (courses with data)
       allCourses.value = (coursesResponse.data || []).filter(
-        (c: Course) => c.status === 'In Progress' || c.status === 'Completed'
+        (c: Course) => c.status === 'In Progress' || c.status === 'Completed',
       )
     }
   } catch (err) {
@@ -240,7 +244,7 @@ const handleCourseChange = (event: Event) => {
   const target = event.target as HTMLSelectElement
   const courseId = parseInt(target.value)
   const course = allCourses.value.find((c) => c.id === courseId)
-  
+
   if (course) {
     selectedCourse.value = course
     // Update store as well so navigation remains consistent
@@ -273,12 +277,13 @@ onMounted(async () => {
             CO Attainment Report
           </h1>
           <p class="mt-1 text-base text-gray-600" v-if="selectedCourse">
-            {{ selectedCourse.course_code }} - {{ selectedCourse.course_title }} (Section {{ selectedCourse.section }})
+            {{ selectedCourse.course_code }} - {{ selectedCourse.course_title }} (Section
+            {{ selectedCourse.section }})
           </p>
         </div>
 
         <!-- Course Dropdown -->
-        <div class="relative inline-block min-w-[300px]">
+        <div class="relative inline-block min-w-75">
           <label for="course-select" class="block text-xs font-medium text-gray-700 mb-1">
             Switch Course
           </label>
@@ -290,14 +295,8 @@ onMounted(async () => {
               :disabled="loadingCourses || allCourses.length === 0"
               class="block w-full px-4 py-2.5 pr-10 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
             >
-              <option value="" disabled v-if="allCourses.length === 0">
-                No courses available
-              </option>
-              <option
-                v-for="course in allCourses"
-                :key="course.id"
-                :value="course.id"
-              >
+              <option value="" disabled v-if="allCourses.length === 0">No courses available</option>
+              <option v-for="course in allCourses" :key="course.id" :value="course.id">
                 {{ course.course_code }} - {{ course.course_title }} ({{ course.section }})
               </option>
             </select>
