@@ -3,18 +3,11 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCourseStore } from '@/stores/useCourseStore'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
-import {
-  getStudentsByCourse,
-  getEnrollmentsByCourse,
-} from '@/services/student.service'
+import { getStudentsByCourse, getEnrollmentsByCourse } from '@/services/student.service'
 import { getCourseOutcomeByCourse } from '@/services/courses.service'
 import { getGradesByEnrollments } from '@/services/grades.service'
 import type { Student } from '@/types/studentTypes'
-import {
-  PhCheckCircle,
-  PhXCircle,
-  PhArrowLeft,
-} from '@phosphor-icons/vue'
+import { PhCheckCircle, PhXCircle, PhArrowLeft } from '@phosphor-icons/vue'
 
 interface CourseOutcome {
   id: number
@@ -275,15 +268,10 @@ onMounted(() => {
               <PhXCircle
                 :size="32"
                 weight="fill"
-                class="text-red-500 flex-shrink-0"
+                class="text-red-500 shrink-0"
                 v-if="getClassAttainmentStats(coCode).belowTarget"
               />
-              <PhCheckCircle
-                :size="32"
-                weight="fill"
-                class="text-green-500 flex-shrink-0"
-                v-else
-              />
+              <PhCheckCircle :size="32" weight="fill" class="text-green-500 shrink-0" v-else />
             </div>
 
             <!-- Percentage -->
@@ -309,15 +297,11 @@ onMounted(() => {
               <p
                 :class="[
                   'text-sm font-semibold',
-                  getClassAttainmentStats(coCode).belowTarget
-                    ? 'text-red-600'
-                    : 'text-green-600',
+                  getClassAttainmentStats(coCode).belowTarget ? 'text-red-600' : 'text-green-600',
                 ]"
               >
                 {{
-                  getClassAttainmentStats(coCode).belowTarget
-                    ? '✗ Below Target'
-                    : '✓ Met Target'
+                  getClassAttainmentStats(coCode).belowTarget ? '✗ Below Target' : '✓ Met Target'
                 }}
               </p>
             </div>
@@ -375,19 +359,13 @@ onMounted(() => {
                   <!-- Student Info -->
                   <td class="px-6 py-4">
                     <div class="flex flex-col">
-                      <span class="text-sm font-semibold text-gray-900">{{
-                        student.name
-                      }}</span>
+                      <span class="text-sm font-semibold text-gray-900">{{ student.name }}</span>
                       <span class="text-xs text-gray-500">{{ student.id_number }}</span>
                     </div>
                   </td>
 
                   <!-- CO Attainments -->
-                  <td
-                    v-for="coCode in coKeys"
-                    :key="coCode"
-                    class="px-6 py-4 text-center"
-                  >
+                  <td v-for="coCode in coKeys" :key="coCode" class="px-6 py-4 text-center">
                     <template v-if="getCoAttainment(student.id, coCode) !== null">
                       <span
                         :class="[
