@@ -219,7 +219,7 @@ export async function createCourse(courseData: CourseInsert, adviserId: number):
         error: 'Missing required fields: course_code, course_title, or section'
       }
     }
-
+    console.log('Creating course with data:', courseData, 'for adviser ID:', adviserId)
     const { data, error } = await supabase
       .from('courses')
       .insert([{
