@@ -8,7 +8,6 @@ import ResetPassword from '@/views/auth/ResetPassword.vue'
 import Students from '@/views/faculty/Students.vue'
 import Courses from '@/views/faculty/Courses.vue'
 import ClassRecords from '@/views/faculty/Students-Records.vue'
-import sampleRecord from '@/views/faculty/sampleRecord.vue'
 import COReport from '@/views/faculty/Reports.vue'
 import Dashboard from '@/views/chairperson/Dashboard.vue'
 import ClassRecord from '@/views/chairperson/ClassRecord.vue'
@@ -28,7 +27,6 @@ const routes = [
     name: 'FacultyClassRecord',
     component: ClassRecords,
   },
-  { path: '/faculty/sample', component: sampleRecord, meta: { requiresFaculty: true } },
   {
     path: '/faculty/courses/:courseId/co-report',
     name: 'FacultyCOReport',
