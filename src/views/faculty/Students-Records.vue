@@ -21,6 +21,7 @@ import { useCourseStore } from '@/stores/useCourseStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getGradesByEnrollments, bulkUpsertGrades } from '@/services/grades.service'
 import { PhArrowLeft } from '@phosphor-icons/vue'
+import html2pdf from 'html2pdf.js'
 
 interface CourseOutcome {
   id: number
@@ -428,7 +429,10 @@ const pdfTemplate = computed(() => {
   const coGroups = Object.entries(groups).map(([code, outcomes]) => ({
     code,
     assessments: outcomes.map((co) => ({
-      abbreviation: co.co_description.substring(0, 6), // keep short
+      abbreviation: co.co_description
+        .split(' ')
+        .map((word: string) => word.charAt(0).toUpperCase())
+        .join(''),
       maxScore: co.co_score,
       weight: co.co_weight,
       origId: co.id,
@@ -500,10 +504,9 @@ const exportPDF = async () => {
       students: pdfStudents.value,
       courseInfo: {
         title: `${course?.course_code} – ${course?.course_title}`,
-        semAy: semAy.value, // ← dynamic
+        semAy: semAy.value,
       },
       signatories: {
-        // ← new
         preparedBy: facultyName.value,
         approvedBy: deanName.value,
       },
@@ -527,27 +530,21 @@ const exportPDF = async () => {
       throw new Error(err.error || 'Server error')
     }
 
-    const data = await res.json()
-    if (!data.pdfBase64) throw new Error('Missing pdfBase64')
+    const json = await res.json()
+    if (!json.html) throw new Error('Missing html')
 
-    const byteChars = atob(data.pdfBase64)
-    const byteNums = new Array(byteChars.length)
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i)
-    }
-    const byteArr = new Uint8Array(byteNums)
-    const blob = new Blob([byteArr], { type: 'application/pdf' })
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) throw new Error('Popup blocked — allow popups for this site')
 
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'Class_Record.pdf'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-  } catch (error) {
-    console.error('PDF export failed:', error)
+    printWindow.document.write(json.html)
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
+  } catch (err) {
+    console.error('PDF export failed:', err)
     alert('Failed to generate PDF')
   } finally {
     isloading.value = false
