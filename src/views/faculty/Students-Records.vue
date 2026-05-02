@@ -31,7 +31,10 @@ import {
   PhStudent,
 } from '@phosphor-icons/vue'
 import CourseOutcomeModal from '@/components/commons/CourseOutcomeModal.vue'
-import { updateCourseOutcome } from '@/services/course-outcome.service'
+import {
+  updateCourseOutcome,
+  type CourseOutcome as CourseOutcomeModalType,
+} from '@/services/course-outcome.service'
 
 interface CourseOutcome {
   id: number
@@ -83,7 +86,7 @@ const showCOModal = ref(false)
 const coSaving = ref(false)
 const coError = ref<string | null>(null)
 
-const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
+const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcomeModalType[]) => {
   coSaving.value = true
   coError.value = null
   try {
@@ -180,7 +183,7 @@ const fetchData = async () => {
 
       for (const enrollment of enrollmentsRes.data) {
         enrollmentMap.value[enrollment.student_id] = enrollment.id
-        enrollmentStatusMap.value[enrollment.student_id] = enrollment.status || null
+        enrollmentStatusMap.value[enrollment.student_id] = (enrollment as any).status || null
         enrollmentIds.push(enrollment.id)
       }
 
@@ -727,7 +730,7 @@ onMounted(async () => {
             @click="showCOModal = true"
             class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
           >
-            <PhPlus :size="18" class="mr-2" weight="bold" /> Edit CO Scores
+            <PhSlidersHorizontal :size="18" class="mr-2" weight="bold" /> Edit CO Scores
           </button>
 
           <!-- Input Grade (opens modal for first student if no student was pre‑selected) -->
