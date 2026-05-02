@@ -8,6 +8,7 @@ import {
   getStudentsByCourse,
   getEnrollmentsByCourse,
 } from '@/services/student.service'
+import { updateEnrollmentStatus } from '@/services/enrollment.service'
 import Pagination from '@/components/commons/Pagination.vue'
 import { getCourseOutcomeByCourse } from '@/services/courses.service'
 import { getCurrentUser } from '@/services/auth.service'
@@ -21,7 +22,6 @@ import { useCourseStore } from '@/stores/useCourseStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getGradesByEnrollments, bulkUpsertGrades } from '@/services/grades.service'
 import { PhArrowLeft } from '@phosphor-icons/vue'
-import html2pdf from 'html2pdf.js'
 
 interface CourseOutcome {
   id: number
@@ -61,6 +61,10 @@ const gradeModalError = ref<string | null>(null)
 
 // enrollmentId map: studentId -> enrollmentId
 const enrollmentMap = ref<Record<number, number>>({})
+
+// enrollment status map: studentId -> status
+const enrollmentStatusMap = ref<Record<number, 'passed' | 'failed' | null>>({})
+const updatingStatus = ref<number | null>(null)
 
 // scores: studentId -> coId -> score value
 const scores = ref<Record<number, Record<number, number>>>({})
@@ -139,10 +143,12 @@ const fetchData = async () => {
 
     if (enrollmentsRes.data) {
       enrollmentMap.value = {}
+      enrollmentStatusMap.value = {}
       const enrollmentIds: number[] = []
 
       for (const enrollment of enrollmentsRes.data) {
         enrollmentMap.value[enrollment.student_id] = enrollment.id
+        enrollmentStatusMap.value[enrollment.student_id] = enrollment.status || null
         enrollmentIds.push(enrollment.id)
       }
 
@@ -174,6 +180,7 @@ const fetchData = async () => {
     loading.value = false
   }
 }
+
 const getScore = (studentId: number, coId: number) => {
   return scores.value[studentId]?.[coId] ?? ''
 }
@@ -233,11 +240,70 @@ const hasFinalWA = (studentId: number): boolean => {
   )
 }
 
-const isBelowThreshold = (studentId: number) => {
-  return coKeys.value.some((coCode) => {
+// Count how many COs are below 60%
+const countCOsBelowThreshold = (studentId: number): number => {
+  let belowCount = 0
+  for (const coCode of coKeys.value) {
     const attainment = getCoAttainment(studentId, coCode)
-    return attainment !== null && attainment < 60
-  })
+    if (attainment !== null && attainment < 60) {
+      belowCount++
+    }
+  }
+  return belowCount
+}
+
+// Check if intervention is needed based on cases:
+// Case 1: 1 CO < 60% -> intervention needed
+// Case 2: 2 CO < 60% -> intervention needed
+// Returns true if intervention is needed
+const isInterventionNeeded = (studentId: number): boolean => {
+  const belowCount = countCOsBelowThreshold(studentId)
+  return belowCount >= 1 // Intervention needed if at least 1 CO is below 60%
+}
+
+// Get modified grade based on intervention rules
+const getModifiedGrade = (studentId: number): { numerical: number; letter: string } => {
+  const originalGrade = getGradeEquivalent(getFinalWA(studentId))
+  const belowCount = countCOsBelowThreshold(studentId)
+  
+  // Case 2: 2 or more COs are below 60%, max grade is 3.0
+  if (belowCount >= 2) {
+    const originalNumerical = originalGrade.numerical
+    if (originalNumerical < 3.0) {
+      return { numerical: 3.0, letter: 'D' }
+    }
+  }
+  
+  // Case 1: 1 CO below 60%, grade remains as is
+  return originalGrade
+}
+
+const isBelowThreshold = (studentId: number) => {
+  return countCOsBelowThreshold(studentId) > 0
+}
+
+// Update enrollment status
+const handleStatusChange = async (studentId: number, newStatus: 'passed' | 'failed' | null) => {
+  const enrollmentId = enrollmentMap.value[studentId]
+  if (!enrollmentId) {
+    error.value = 'No enrollment found for this student'
+    return
+  }
+
+  updatingStatus.value = studentId
+  try {
+    const result = await updateEnrollmentStatus(enrollmentId, newStatus)
+    if (result.error) {
+      error.value = result.error
+    } else {
+      enrollmentStatusMap.value[studentId] = newStatus
+    }
+  } catch (err) {
+    console.error('Error updating status:', err)
+    error.value = 'Failed to update status'
+  } finally {
+    updatingStatus.value = null
+  }
 }
 
 // Open grade modal for a specific student
@@ -473,7 +539,9 @@ const pdfStudents = computed(() => {
     const coAttainments = coKeys.value.map((coCode) => getCoAttainment(student.id, coCode) ?? 0)
     const finalWA = getFinalWA(student.id)
     const grade = getGradeEquivalent(finalWA)
+    const modifiedGrade = getModifiedGrade(student.id)
     const below = isBelowThreshold(student.id)
+    const intervention = isInterventionNeeded(student.id) ? 'Yes' : 'No'
 
     return {
       id: student.id,
@@ -490,8 +558,9 @@ const pdfStudents = computed(() => {
       finalWA,
       finalGrade: grade.numerical.toFixed(2),
       remarks: below ? 'Failed' : 'Pass',
-      intervention: below ? 'Intervention Failed' : '',
-      finalGradeAfter: '',
+      intervention: intervention,
+      finalGradeAfter: modifiedGrade.numerical.toFixed(2),
+      status: enrollmentStatusMap.value[student.id] || '',
     }
   })
 })
@@ -705,9 +774,19 @@ onMounted(async () => {
                   Final WA
                 </th>
                 <th
-                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 bg-purple-50 w-20"
+                  class="px-4 py-3 text-center text-sm font-bold text-purple-600 border-r border-gray-200 bg-purple-50 w-20"
                 >
                   Grade
+                </th>
+                <th
+                  class="px-4 py-3 text-center text-sm font-bold text-orange-600 border-r border-gray-200 bg-orange-50 w-24"
+                >
+                  Intervention
+                </th>
+                <th
+                  class="px-4 py-3 text-center text-sm font-bold text-green-600 bg-green-50 w-28"
+                >
+                  Status
                 </th>
               </tr>
 
@@ -741,7 +820,9 @@ onMounted(async () => {
                   </th>
                 </template>
                 <th class="border-r border-gray-200 bg-purple-50/40"></th>
-                <th class="bg-purple-50/40"></th>
+                <th class="border-r border-gray-200 bg-purple-50/40"></th>
+                <th class="border-r border-gray-200 bg-orange-50/40"></th>
+                <th class="bg-green-50/40"></th>
               </tr>
 
               <!-- Row 3: Weight / Max scores -->
@@ -771,6 +852,8 @@ onMounted(async () => {
                   </th>
                   <th class="border-r border-gray-200"></th>
                 </template>
+                <th class="border-r border-gray-200"></th>
+                <th class="border-r border-gray-200"></th>
                 <th class="border-r border-gray-200"></th>
                 <th></th>
               </tr>
@@ -889,23 +972,60 @@ onMounted(async () => {
                   <span v-else class="text-gray-300 text-xs">—</span>
                 </td>
 
-                <!-- Grade -->
-                <td class="px-3 py-3 text-center bg-purple-50/30 w-20">
+                <!-- Grade (Modified based on intervention rules) -->
+                <td class="px-3 py-3 text-center border-r border-gray-200 bg-purple-50/30 w-20">
                   <template v-if="hasFinalWA(student.id)">
                     <div class="flex flex-col items-center gap-0.5">
                       <span class="text-sm font-bold text-gray-800">
-                        {{ getGradeEquivalent(getFinalWA(student.id)).numerical }}
+                        {{ getModifiedGrade(student.id).numerical }}
                       </span>
                       <span
                         :class="[
                           'text-xs font-semibold px-2 py-0.5 rounded-full',
-                          getFinalWA(student.id) >= 60
+                          getModifiedGrade(student.id).numerical <= 3.0
                             ? 'bg-green-100 text-green-700'
                             : 'bg-red-100 text-red-700',
                         ]"
                       >
-                        {{ getGradeEquivalent(getFinalWA(student.id)).letter }}
+                        {{ getModifiedGrade(student.id).letter }}
                       </span>
+                    </div>
+                  </template>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
+
+                <!-- Intervention (Yes/No) -->
+                <td class="px-3 py-3 text-center border-r border-gray-200 bg-orange-50/30 w-24">
+                  <template v-if="hasFinalWA(student.id)">
+                    <span
+                      :class="[
+                        'inline-block px-3 py-1 rounded-full text-xs font-semibold',
+                        isInterventionNeeded(student.id)
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700',
+                      ]"
+                    >
+                      {{ isInterventionNeeded(student.id) ? 'Yes' : 'No' }}
+                    </span>
+                  </template>
+                  <span v-else class="text-gray-300 text-xs">—</span>
+                </td>
+
+                <!-- Status Dropdown -->
+                <td class="px-3 py-3 text-center bg-green-50/30 w-28">
+                  <template v-if="hasFinalWA(student.id)">
+                    <select
+                      :value="enrollmentStatusMap[student.id] || ''"
+                      @change="handleStatusChange(student.id, ($event.target as HTMLSelectElement).value as 'passed' | 'failed' | null)"
+                      :disabled="updatingStatus === student.id"
+                      class="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Select Status</option>
+                      <option value="passed">Passed</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                    <div v-if="updatingStatus === student.id" class="mt-1">
+                      <div class="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent text-green-600 rounded-full"></div>
                     </div>
                   </template>
                   <span v-else class="text-gray-300 text-xs">—</span>
@@ -914,7 +1034,7 @@ onMounted(async () => {
 
               <tr v-if="students.length === 0">
                 <td
-                  :colspan="3 + courseOutcomes.length + coKeys.length + 2"
+                  :colspan="3 + courseOutcomes.length + coKeys.length + 4"
                   class="px-6 py-16 text-center"
                 >
                   <div class="flex flex-col items-center justify-center text-gray-400">
@@ -993,7 +1113,7 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* Ensure sticky cells have a background so they don’t become transparent */
+/* Ensure sticky cells have a background so they don't become transparent */
 .sticky {
   background-color: inherit;
 }
