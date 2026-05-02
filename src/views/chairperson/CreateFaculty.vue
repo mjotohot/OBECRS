@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
 import CreateFacultyModal from '@/components/commons/CreateFacultyModal.vue'
 import AppModal from '@/components/commons/AppModal.vue'
+import Pagination from '@/components/commons/Pagination.vue'
 import { getFacultyUsers } from '@/services/auth.service'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { supabase } from '@/services/supabase.service'
@@ -32,9 +33,24 @@ const deleting = ref(false)
 const deleteTarget = ref<FacultyUser | null>(null)
 const deleteError = ref<string | null>(null)
 
+// ---------- Pagination state ----------
+const currentPage = ref(1)
+const itemsPerPage = ref(10) // you can change the number
+
+const paginatedFaculty = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  return facultyUsers.value.slice(start, start + itemsPerPage.value)
+})
+
+const handlePageChange = (page: number) => {
+  currentPage.value = page
+}
+
+// Optional: reset to page 1 whenever the list is refreshed
 const fetchFacultyUsers = async () => {
   loading.value = true
   error.value = null
+  currentPage.value = 1 // <-- reset pagination
   try {
     const { data, error: fetchError } = await getFacultyUsers()
     if (fetchError) throw new Error(fetchError)
@@ -185,82 +201,90 @@ onMounted(async () => {
           <p class="text-sm text-slate-400 mt-1">Click "Create Faculty" to add the first one.</p>
         </div>
 
-        <!-- Table -->
-        <table v-else class="min-w-full">
-          <thead>
-            <tr class="bg-slate-50/50 border-b border-slate-200">
-              <th
-                class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+        <!-- Table + Pagination -->
+        <template v-else>
+          <table class="min-w-full">
+            <thead>
+              <tr class="bg-slate-50/50 border-b border-slate-200">
+                <th
+                  class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+                >
+                  Name
+                </th>
+                <th
+                  class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+                >
+                  Email
+                </th>
+                <th
+                  class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
+                >
+                  Date Created
+                </th>
+                <th
+                  class="px-6 py-3.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wider"
+                >
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr
+                v-for="user in paginatedFaculty"
+                :key="user.user_id"
+                class="hover:bg-slate-50/70 transition-colors group"
               >
-                Name
-              </th>
-              <th
-                class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
-              >
-                Email
-              </th>
-              <th
-                class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider"
-              >
-                Date Created
-              </th>
-              <th
-                class="px-6 py-3.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wider"
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            <tr
-              v-for="user in facultyUsers"
-              :key="user.user_id"
-              class="hover:bg-slate-50/70 transition-colors group"
-            >
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 uppercase"
-                  >
-                    {{ user.first_name?.charAt(0) }}{{ user.last_name?.charAt(0) }}
-                  </div>
-                  <div>
-                    <div class="text-sm font-semibold text-slate-800 leading-tight">
-                      {{ user.first_name }} {{ user.last_name }}
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center shrink-0 uppercase"
+                    >
+                      {{ user.first_name?.charAt(0) }}{{ user.last_name?.charAt(0) }}
+                    </div>
+                    <div>
+                      <div class="text-sm font-semibold text-slate-800 leading-tight">
+                        {{ user.first_name }} {{ user.last_name }}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-sm text-slate-500">
-                {{ user.email ?? '—' }}
-              </td>
-              <td class="px-6 py-4 text-sm text-slate-500">
-                {{ formatDate(user.created_at) }}
-              </td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <button
-                    @click="confirmDelete(user)"
-                    class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
-                  >
-                    <PhTrash :size="14" />
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-500">
+                  {{ user.email ?? '—' }}
+                </td>
+                <td class="px-6 py-4 text-sm text-slate-500">
+                  {{ formatDate(user.created_at) }}
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      @click="confirmDelete(user)"
+                      class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"
+                    >
+                      <PhTrash :size="14" />
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <Pagination
+            :currentPage="currentPage"
+            :totalItems="facultyUsers.length"
+            :itemsPerPage="itemsPerPage"
+            :alwaysShow="true"
+            @page-change="handlePageChange"
+          />
+        </template>
       </div>
 
-      <!-- Create Faculty Modal -->
       <CreateFacultyModal
         :isOpen="showCreateModal"
         @close="showCreateModal = false"
         @success="((showCreateModal = false), fetchFacultyUsers())"
       />
 
-      <!-- Delete Confirmation Modal (prop-based) -->
       <AppModal
         :isOpen="showDeleteModal"
         title="Delete Faculty Account"

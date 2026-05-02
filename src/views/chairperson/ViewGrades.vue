@@ -32,7 +32,7 @@ interface CourseOutcome {
 }
 
 const router = useRouter()
-const goBack = () => router.push('/faculty/courses')
+const goBack = () => router.push('/chairperson/class-record')
 
 const showLogoutConfirm = ref(false)
 const showStudentModal = ref(false)
@@ -534,7 +534,7 @@ onMounted(async () => {
             class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-indigo-600 transition-colors mb-3 group"
           >
             <PhArrowLeft :size="13" class="group-hover:-translate-x-0.5 transition-transform" />
-            Back to Courses
+            Back to Class Records
           </button>
           <h2 class="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
             My Class Record

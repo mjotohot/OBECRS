@@ -572,7 +572,7 @@ const getStatusBorderClass = (status: string) => {
                       </button>
 
                       <!-- Edit CO Scores -->
-                      <button
+                      <!-- <button
                         v-if="shouldShowEditCO(course.status)"
                         @click="openCOModal(course)"
                         class="inline-flex items-center gap-1.5 px-3 cursor-pointer py-2 text-xs font-medium rounded-lg hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors"
@@ -580,7 +580,7 @@ const getStatusBorderClass = (status: string) => {
                       >
                         <PhChartLine :size="14" weight="bold" />
                         Edit CO Scores
-                      </button>
+                      </button> -->
 
                       <!-- Edit Course -->
                       <button
@@ -678,7 +678,7 @@ const getStatusBorderClass = (status: string) => {
         @submit="handleCourseSubmit"
       />
 
-      <CourseOutcomeModal
+      <!-- <CourseOutcomeModal
         :isOpen="showCOModal"
         :course="selectedCourseForCO"
         :courseOutcomes="courseOutcomes"
@@ -686,7 +686,7 @@ const getStatusBorderClass = (status: string) => {
         :error="coError"
         @close="showCOModal = false"
         @save="handleSaveOutcomeScores"
-      />
+      /> -->
 
       <SyllabusUploadModal
         :isOpen="showSyllabusModal"
