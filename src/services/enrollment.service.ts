@@ -2,7 +2,6 @@
 import { supabase } from './supabase.service'
 import type { Enrollment, EnrollmentWithDetails } from '@/types/enrollmentTypes'
 
-
 export type AuthResponse<T = any> = {
   data: T | null
   error: string | null
@@ -28,6 +27,7 @@ export async function enrollStudent(studentId: number, courseId: number): Promis
       .insert([{
         student_id: studentId,
         course_id: courseId,
+        status: null, // Initialize status as null
         created_at: new Date().toISOString()
       }])
       .select()
@@ -41,6 +41,30 @@ export async function enrollStudent(studentId: number, courseId: number): Promis
     return { data: data as Enrollment, error: null }
   } catch (err) {
     return { data: null, error: 'Failed to enroll student' }
+  }
+}
+
+// Update enrollment status
+export async function updateEnrollmentStatus(
+  enrollmentId: number, 
+  status: 'passed' | 'failed' | null
+): Promise<AuthResponse<Enrollment>> {
+  try {
+    const { data, error } = await supabase
+      .from('enrollment')
+      .update({ status })
+      .eq('id', enrollmentId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating enrollment status:', error)
+      return { data: null, error: error.message }
+    }
+
+    return { data: data as Enrollment, error: null }
+  } catch (err) {
+    return { data: null, error: 'Failed to update enrollment status' }
   }
 }
 

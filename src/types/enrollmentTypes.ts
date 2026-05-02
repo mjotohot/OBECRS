@@ -4,6 +4,7 @@ export interface Enrollment {
   created_at: string
   course_id: number
   student_id: number
+  status?: 'passed' | 'failed' | null  // Add status field
 }
 
 export interface EnrollmentWithDetails extends Enrollment {
@@ -17,10 +18,12 @@ export interface EnrollmentWithDetails extends Enrollment {
   student?: {
     id: number
     name: string
+    id_number: string
   }
 }
 
 export interface EnrollmentFormData {
   student_id: number
   course_id: number
+  status?: 'passed' | 'failed' | null
 }
