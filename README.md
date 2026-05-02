@@ -1,6 +1,6 @@
 # Class Record & Outcome Tracker
 
-A web application designed for Philippine higher education institutions to manage class records, student grades, and course outcome attainment. Built with Vue 3, TypeScript, and Supabase.
+A web application designed for higher education institutions to manage class records, student grades, and course outcome attainment. Built with Vue 3, TypeScript, and Supabase.
 
 ## Key Features
 
