@@ -8,6 +8,7 @@ import {
   createStudent,
   updateStudent,
   getEnrolledCoursesByStudentIds,
+  deleteStudent
 } from '@/services/student.service'
 import { getCurrentUser } from '@/services/auth.service'
 import AdminLayout from '@/components/layouts/AdminLayout.vue'
@@ -15,6 +16,9 @@ import AppModal from '@/components/commons/AppModal.vue'
 import StudentModal from '@/components/commons/StudentModal.vue'
 import type { Student } from '@/types/studentTypes'
 import EnrollmentModal from '@/components/commons/EnrollmentModal.vue'
+import BulkImportModal from '@/components/commons/BulkImportModal.vue'
+import { bulkCreateStudents } from '@/services/student.service'
+import { PhUploadSimple } from '@phosphor-icons/vue'
 import {
   PhPlus,
   PhBookOpen,
@@ -38,7 +42,39 @@ const error = ref<string | null>(null)
 const currentUser = ref<any>(null)
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
+const showBulkImportModal = ref(false)
+const bulkImportLoading = ref(false)
 
+const handleBulkImport = async (importedStudents: Array<{ id_number: string; name: string }>) => {
+  if (!currentUser.value) {
+    error.value = 'User not authenticated'
+    return
+  }
+
+  bulkImportLoading.value = true
+  
+  try {
+    const response = await bulkCreateStudents(importedStudents, currentUser.value.id)
+    
+    if (response.error) {
+      error.value = response.error
+      console.error('Bulk import error:', response.error)
+    } else if (response.data) {
+      // Add new students to the existing list
+      students.value.unshift(...response.data)
+      showBulkImportModal.value = false
+      console.log(`Successfully imported ${response.data.length} students`)
+      
+      // Optional: Show success message
+      alert(`Successfully imported ${response.data.length} students!`)
+    }
+  } catch (err) {
+    console.error('Error during bulk import:', err)
+    error.value = 'Failed to import students'
+  } finally {
+    bulkImportLoading.value = false
+  }
+}
 // Fetch students from Supabase
 const fetchStudents = async () => {
   loading.value = true
@@ -188,11 +224,23 @@ const handleLogoutConfirm = async () => {
   }
 }
 
-// Delete student
 const handleDeleteStudent = async (student: Student) => {
   if (confirm(`Are you sure you want to delete ${student.name}?`)) {
-    // Add your delete logic here
-    console.log('Delete student:', student)
+    try {
+      const response = await deleteStudent(student.id)
+
+      if (response.error) {
+        error.value = response.error
+        return
+      }
+
+      // Remove student from local state
+      students.value = students.value.filter((s) => s.id !== student.id)
+      console.log('Student deleted successfully')
+    } catch (err) {
+      console.error('Error deleting student:', err)
+      error.value = 'Failed to delete student'
+    }
   }
 }
 
@@ -224,6 +272,14 @@ onMounted(() => {
             Manage your students and enroll them to courses.
           </p>
         </div>
+           <div class="flex gap-3">
+             <button
+            @click="showBulkImportModal = true"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium rounded-xl shadow-sm hover:bg-emerald-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
+          >
+            <PhUploadSimple :size="18" weight="bold" />
+            Bulk Import
+          </button>
         <button
           @click="openAddModal"
           class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-medium rounded-xl shadow-sm hover:bg-indigo-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 whitespace-nowrap"
@@ -231,6 +287,7 @@ onMounted(() => {
           <PhPlus :size="18" weight="bold" />
           Add Student
         </button>
+      </div>
       </div>
 
       <!-- Loading State -->
@@ -433,6 +490,12 @@ onMounted(() => {
         :student="selectedStudent"
         @close="closeEnrollmentModal"
         @success="handleEnrollmentSuccess"
+      />
+
+      <BulkImportModal
+      :isOpen="showBulkImportModal"
+      @close="showBulkImportModal = false"
+      @import="handleBulkImport"
       />
     </div>
   </AdminLayout>

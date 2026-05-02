@@ -222,7 +222,7 @@ export async function createCourse(
           course_title: courseData.course_title,
           section: courseData.section,
           academic_year: courseData.academic_year,
-          status: courseData.status || 'Not Started',
+          status: 'Not Started',
         },
       ])
       .select()

@@ -87,7 +87,7 @@
                   {{ co.co_score }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 text-center align-top">
-                  {{ (co.co_weight * 100).toFixed(2) }}%
+                  {{(co.co_weight)}}%
                 </td>
                 <td class="px-4 py-3 text-center align-top">
                   <input

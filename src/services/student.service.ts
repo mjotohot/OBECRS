@@ -187,3 +187,92 @@ export const getEnrolledCoursesByStudentIds = async (
   }
   return result
 }
+
+// Add this function to your student.service.ts
+
+export async function bulkCreateStudents(
+  studentsData: Array<{ id_number: string; name: string }>,
+  adviserId: number,
+): Promise<AuthResponse<Student[]>> {
+  try {
+    // Validate data
+    if (!studentsData.length) {
+      return {
+        data: null,
+        error: 'No student data provided',
+      }
+    }
+
+    // Prepare data for insert
+    const studentsToInsert = studentsData.map(student => ({
+      adviser_id: adviserId,
+      id_number: student.id_number.trim(),
+      name: student.name.trim(),
+    }))
+
+    // Insert in batches to avoid overwhelming the database
+    const batchSize = 50
+    const allInsertedStudents: Student[] = []
+    
+    for (let i = 0; i < studentsToInsert.length; i += batchSize) {
+      const batch = studentsToInsert.slice(i, i + batchSize)
+      
+      const { data, error } = await supabase
+        .from('students')
+        .insert(batch)
+        .select()
+
+      if (error) {
+        console.error('Error bulk creating students:', error)
+        return {
+          data: null,
+          error: `Failed to insert batch at index ${i}: ${error.message}`,
+        }
+      }
+
+      if (data) {
+        allInsertedStudents.push(...(data as Student[]))
+      }
+    }
+
+    return {
+      data: allInsertedStudents,
+      error: null,
+    }
+  } catch (err) {
+    console.error('Unexpected error during bulk insert:', err)
+    return {
+      data: null,
+      error: 'Failed to bulk create students',
+    }
+  }
+}
+
+// Delete a student
+export async function deleteStudent(studentId: number): Promise<AuthResponse<void>> {
+  try {
+    const { error } = await supabase
+      .from('students')
+      .delete()
+      .eq('id', studentId)
+
+    if (error) {
+      console.error('Error deleting student:', error)
+      return {
+        data: null,
+        error: error.message,
+      }
+    }
+
+    return {
+      data: null,
+      error: null,
+    }
+  } catch (err) {
+    console.error('Unexpected error:', err)
+    return {
+      data: null,
+      error: 'Failed to delete student',
+    }
+  }
+}
