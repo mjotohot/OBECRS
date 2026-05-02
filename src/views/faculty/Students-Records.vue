@@ -20,8 +20,17 @@ import GradeModal from '@/components/commons/GradeModal.vue'
 import { useCourseStore } from '@/stores/useCourseStore'
 import { useAuthStore } from '@/stores/useAuthStore'
 import { getGradesByEnrollments, bulkUpsertGrades } from '@/services/grades.service'
-import { PhArrowLeft } from '@phosphor-icons/vue'
-import html2pdf from 'html2pdf.js'
+import {
+  PhArrowLeft,
+  PhPencilSimple,
+  PhPlus,
+  PhFilePdf,
+  PhSlidersHorizontal,
+  PhCaretDown,
+  PhStudent,
+} from '@phosphor-icons/vue'
+import CourseOutcomeModal from '@/components/commons/CourseOutcomeModal.vue'
+import { updateCourseOutcome } from '@/services/course-outcome.service'
 
 interface CourseOutcome {
   id: number
@@ -64,6 +73,28 @@ const enrollmentMap = ref<Record<number, number>>({})
 
 // scores: studentId -> coId -> score value
 const scores = ref<Record<number, Record<number, number>>>({})
+
+const showCOModal = ref(false)
+const coSaving = ref(false)
+const coError = ref<string | null>(null)
+
+const handleSaveOutcomeScores = async (updatedOutcomes: CourseOutcome[]) => {
+  coSaving.value = true
+  coError.value = null
+  try {
+    for (const outcome of updatedOutcomes) {
+      const res = await updateCourseOutcome(outcome.id, { co_score: outcome.co_score ?? 0 })
+      if (res.error) throw new Error(res.error)
+    }
+    courseOutcomes.value = updatedOutcomes.map((co) => ({ ...co, co_score: co.co_score ?? 0 }))
+    await fetchData() // refresh the whole class record table
+    showCOModal.value = false
+  } catch (err: any) {
+    coError.value = err.message || 'Failed to save max scores'
+  } finally {
+    coSaving.value = false
+  }
+}
 
 // Group outcomes by co_code and sort by id
 const groupedOutcomes = computed(() => {
@@ -599,7 +630,7 @@ onMounted(async () => {
         </div>
 
         <!-- Actions -->
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
           <!-- Dropdown for students without grades -->
           <div class="relative" v-if="studentsWithoutGrades.length > 0">
             <select
@@ -618,26 +649,33 @@ onMounted(async () => {
             <div
               class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400"
             >
-              <i class="fas fa-chevron-down text-xs"></i>
+              <PhCaretDown :size="12" weight="bold" />
             </div>
           </div>
 
-          <!-- Input Grade (opens modal for first student if no student was pre‑selected) -->
           <button
+            @click="showCOModal = true"
+            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+          >
+            <PhPlus :size="18" class="mr-2" weight="bold" /> Edit CO Scores
+          </button>
+
+          <!-- Input Grade (opens modal for first student if no student was pre‑selected) -->
+          <!-- <button
             @click="openGradeModalForStudentWithoutGrades"
             class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 whitespace-nowrap"
           >
-            <i class="fas fa-plus mr-2"></i>
+            <PhPlus :size="18" class="mr-2" weight="bold" />
             Input Grade
-          </button>
+          </button> -->
 
           <!-- Export PDF -->
           <button
             @click="exportPDF"
             :disabled="isloading"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
+            class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 whitespace-nowrap"
           >
-            <i class="fas fa-file-pdf mr-2"></i>
+            <PhFilePdf :size="18" class="mr-2" weight="bold" />
             {{ isloading ? 'Generating...' : 'Export to PDF' }}
           </button>
         </div>
@@ -672,20 +710,20 @@ onMounted(async () => {
               <tr class="bg-white border-b border-gray-200">
                 <!-- Sticky: ID (left:0) -->
                 <th
-                  class="sticky left-0 z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  class="sticky left-0 z-20 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 >
                   Student No.
                 </th>
                 <!-- Sticky: Name (left = w-28 = 112px) -->
                 <th
-                  class="sticky z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-44 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-44 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 112px"
                 >
                   Name
                 </th>
                 <!-- Sticky: Actions (left = 112px + w-44 = 288px) -->
                 <th
-                  class="sticky z-[20] bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-white px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 288px"
                 >
                   Actions
@@ -715,14 +753,14 @@ onMounted(async () => {
               <tr class="bg-indigo-50/40 border-b border-gray-200">
                 <!-- Sticky cells (mirror offsets) -->
                 <th
-                  class="sticky left-0 z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  class="sticky left-0 z-20 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 ></th>
                 <th
-                  class="sticky z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 112px"
                 ></th>
                 <th
-                  class="sticky z-[20] bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-white border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 288px"
                 ></th>
 
@@ -730,7 +768,7 @@ onMounted(async () => {
                   <th
                     v-for="co in groupedOutcomes[coCode]"
                     :key="co.id"
-                    class="px-3 py-2 text-center text-[11px] text-gray-500 font-normal border-r border-gray-100 max-w-[140px]"
+                    class="px-3 py-2 text-center text-[11px] text-gray-500 font-normal border-r border-gray-100 max-w-35"
                   >
                     <span class="line-clamp-2 block leading-tight">{{ co.co_description }}</span>
                   </th>
@@ -748,14 +786,14 @@ onMounted(async () => {
               <tr class="bg-gray-50 border-b border-gray-200">
                 <!-- Sticky cells -->
                 <th
-                  class="sticky left-0 z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  class="sticky left-0 z-20 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                 ></th>
                 <th
-                  class="sticky z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 112px"
                 ></th>
                 <th
-                  class="sticky z-[20] bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-20 bg-gray-50 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 288px"
                 ></th>
 
@@ -789,7 +827,7 @@ onMounted(async () => {
               >
                 <!-- Sticky: ID -->
                 <td
-                  class="sticky left-0 z-[10] px-4 py-3 font-semibold text-gray-900 border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  class="sticky left-0 z-10 px-4 py-3 font-semibold text-gray-900 border-r border-gray-200 w-28 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                   :class="
                     isBelowThreshold(student.id)
                       ? 'bg-red-50 group-hover:bg-red-100'
@@ -800,7 +838,7 @@ onMounted(async () => {
                 </td>
                 <!-- Sticky: Name -->
                 <td
-                  class="sticky z-[10] px-4 py-3 text-gray-800 border-r border-gray-200 w-44 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-10 px-4 py-3 text-gray-800 border-r border-gray-200 w-44 whitespace-nowrap shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 112px"
                   :class="
                     isBelowThreshold(student.id)
@@ -812,7 +850,7 @@ onMounted(async () => {
                 </td>
                 <!-- Sticky: Actions -->
                 <td
-                  class="sticky z-[10] px-4 py-3 text-center border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
+                  class="sticky z-10 px-4 py-3 text-center border-r border-gray-200 w-24 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.05)]"
                   style="left: 288px"
                   :class="
                     isBelowThreshold(student.id)
@@ -825,7 +863,7 @@ onMounted(async () => {
                     class="text-indigo-600 hover:text-indigo-800 p-1 rounded-full hover:bg-indigo-50 transition-colors"
                     title="Edit grades"
                   >
-                    <i class="fas fa-edit"></i>
+                    <PhPencilSimple :size="16" weight="bold" />
                   </button>
                 </td>
 
@@ -921,7 +959,7 @@ onMounted(async () => {
                     <div
                       class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"
                     >
-                      <i class="fas fa-user-graduate text-xl text-gray-400"></i>
+                      <PhStudent :size="24" class="text-gray-400" weight="bold" />
                     </div>
                     <p class="text-sm font-medium text-gray-500">No students found.</p>
                     <p class="text-xs text-gray-400 mt-1">
@@ -980,6 +1018,15 @@ onMounted(async () => {
         @close="closeGradeModal"
         @submit="handleGradeSubmit"
       />
+      <CourseOutcomeModal
+        :isOpen="showCOModal"
+        :course="course"
+        :courseOutcomes="courseOutcomes"
+        :saving="coSaving"
+        :error="coError"
+        @close="showCOModal = false"
+        @save="handleSaveOutcomeScores"
+      />
     </div>
   </AdminLayout>
 </template>
@@ -993,7 +1040,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* Ensure sticky cells have a background so they don’t become transparent */
 .sticky {
   background-color: inherit;
 }
