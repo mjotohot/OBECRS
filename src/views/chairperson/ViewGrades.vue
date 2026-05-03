@@ -472,25 +472,19 @@ const exportPDF = async () => {
       throw new Error(err.error || 'Server error')
     }
 
-    const data = await res.json()
-    if (!data.pdfBase64) throw new Error('Missing pdfBase64 in response')
+    const json = await res.json()
+    if (!json.html) throw new Error('Missing html')
 
-    const byteChars = atob(data.pdfBase64)
-    const byteNums = new Array(byteChars.length)
-    for (let i = 0; i < byteChars.length; i++) {
-      byteNums[i] = byteChars.charCodeAt(i)
-    }
-    const byteArr = new Uint8Array(byteNums)
-    const blob = new Blob([byteArr], { type: 'application/pdf' })
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) throw new Error('Popup blocked — allow popups for this site')
 
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'Class_Record.pdf'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    printWindow.document.write(json.html)
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
   } catch (error) {
     console.error('PDF export failed:', error)
     alert('Failed to generate PDF')
@@ -578,7 +572,7 @@ onMounted(async () => {
           <button
             @click="exportPDF"
             :disabled="isloading"
-            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            class="inline-flex items-center px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-red-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
           >
             <PhFilePdf :size="16" weight="bold" class="mr-1.5" />
             {{ isloading ? 'Generating PDF...' : 'Export to PDF' }}
