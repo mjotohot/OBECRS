@@ -101,7 +101,7 @@ async function handleSubmit() {
                 id="email"
                 v-model="email"
                 type="email"
-                placeholder="student@university.edu"
+                placeholder="faculty@carsu.edu.ph"
                 autocomplete="email"
                 :disabled="isLoading"
                 class="w-full h-10 bg-white/10 border border-white/10 rounded-lg pl-9 pr-3.5 text-sm text-slate-100 placeholder:text-slate-300 outline-none transition focus:border-[#f9dc07] focus:ring-2 focus:ring-[#f9dc07]/30 disabled:opacity-50 disabled:cursor-not-allowed"
