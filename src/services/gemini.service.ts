@@ -46,7 +46,7 @@ export const extractCOsFromPDF = async (pdfFile: File): Promise<ExtractedData> =
       },
     })
 
-    const prompt = `STRICT AUDIT PROTOCOL - NO EXCEPTIONS
+    const prompt2 = `STRICT AUDIT PROTOCOL - NO EXCEPTIONS
 
 STEP 1: Extract ALL task names from Part IV table
 - Expand ranges: "Laboratory Activity 1-11" → ["Laboratory Activity 1", "Laboratory Activity 2", ..., "Laboratory Activity 11"]
@@ -91,6 +91,38 @@ IF ALL tasks found:
   }
 
 CRITICAL: Apply all four matching rules before declaring a task missing. Only flag a task as missing if it genuinely cannot be found under any rule.`
+
+const prompt = `Role: You are a specialized Data Extraction Assistant.
+Task: Extract specific tabular data from the "PART IV: GRADING SYSTEM" section of a Course Syllabus PDF.
+
+System Instruction / Prompt:
+"Extract all assessment tasks from the 'Detailed Assessment Weights' table in Part IV of the provided document.
+
+Constraint Rules:
+
+Granularity: You must separate collective tasks (e.g., 'Laboratory Activities 1-11') into individual objects for each item (1, 2, 3... 11).
+
+Object Structure: Each object in the JSON array must contain exactly these keys: co, task, task_weight_within_category, final_co_contribution, and domain.
+
+Data Normalization: >    - For domain, use the shorthand codes: C (Cognitive), P (Psychomotor), A (Affective).
+
+For final_co_contribution, calculate the specific percentage weight assigned to that individual task relative to the total course grade.
+
+Output Format: Return ONLY a valid JSON object. No markdown, no conversational text.
+
+Schema Template:
+
+JSON
+{
+  "assessments": [
+    {
+      "co": "string",
+      "task": "string",
+      "task_weight_within_category": "string",
+      "final_co_contribution": "percentage",
+    }
+  ]
+}`
 
     console.log('Sending request to Gemini API...')
     const result = await model.generateContent([prompt, base64PDF])
