@@ -1,42 +1,32 @@
-# CSU_OBE
+# Class Record & Outcome Tracker
 
-This template should help get you started developing with Vue 3 in Vite.
+A web application designed for higher education institutions to manage class records, student grades, and course outcome attainment. Built with Vue 3, TypeScript, and Supabase.
 
-## Recommended IDE Setup
+## Key Features
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Course Management** – Create, edit, archive, and browse courses with status tracking.
+- **Syllabus Upload** – Upload a PDF syllabus and automatically extract course outcomes (via Gemini).
+- **Student & Grade Management** – Enroll students, input/update grades per assessment, and view real‑time attainment percentages.
+- **Custom Max Scores** – Edit max scores directly on the class record page—no need to navigate away.
+- **Attainment & Intervention** – Automatically compute CO attainment, flag students needing intervention, and track enrollment status (Passed/Failed).
+- **PDF Export** – Generate printable class records with all computed data.
+- **Role‑based Access** – Faculty manage their own courses; chairpersons oversee all faculty records and accounts.
+- **Pagination & Responsive Design** – Works smoothly on desktops and tablets, with pagination for large datasets.
 
-## Recommended Browser Setup
+## Tech Stack
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- Frontend: Vue 3 (Composition API), TypeScript, Vite, Tailwind CSS, Phosphor Icons
+- Backend: Supabase (PostgreSQL, Auth, Edge Functions)
+- PDF Generation: html2pdf.js / Supabase Edge Function
+- AI Integration: Google Gemini (syllabus extraction)
 
-## Type Support for `.vue` Imports in TS
+## Getting Started
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Configure environment variables (`.env` with Supabase URL, anon key, and Gemini API key)
+4. Run the development server: `npm run dev`
 
-## Customize configuration
+---
 
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
+*Developed for faculty and chairperson use in higher education settings.*

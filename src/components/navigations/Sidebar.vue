@@ -41,6 +41,7 @@ const navigationItems = computed(() => {
       { name: 'Class Records', href: '/chairperson/class-record', icon: PhUsers },
       { name: 'Reports', href: '/chairperson/reports', icon: PhListChecks },
       { name: 'Create Accounts', href: '/chairperson/create-faculty', icon: PhUsers },
+      { name: 'Academic Years', href: '/chairperson/academic-years', icon: PhPrinter },
     ]
   }
   if (user_role === 'Faculty') {

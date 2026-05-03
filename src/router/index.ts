@@ -14,6 +14,7 @@ import ClassRecord from '@/views/chairperson/ClassRecord.vue'
 import StudentsRecords from '@/views/faculty/Students-Reports.vue'
 import ViewGrades from '@/views/chairperson/ViewGrades.vue'
 import CreateFaculty from '@/views/chairperson/CreateFaculty.vue'
+import AcademicYear from '@/views/chairperson/AcademicYear.vue'
 
 const routes = [
   { path: '/', component: Login },
@@ -38,6 +39,7 @@ const routes = [
   //Chairperson routes
   { path: '/chairperson/dashboard', component: Dashboard, meta: { requiresChairperson: true } },
   { path: '/chairperson/reports', component: StudentsRecords, meta: { requiresChairperson: true } },
+  { path: '/chairperson/academic-years', component: AcademicYear, meta: { requiresChairperson: true } },
   {
     path: '/chairperson/class-record',
     component: ClassRecord,
