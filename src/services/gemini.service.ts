@@ -95,21 +95,24 @@ CRITICAL: Apply all four matching rules before declaring a task missing. Only fl
 const prompt = `Role: You are a specialized Data Extraction Assistant.
 Task: Extract specific tabular data from the "PART IV: GRADING SYSTEM" section of a Course Syllabus PDF.
 
-System Instruction / Prompt:
-"Extract all assessment tasks from the 'Detailed Assessment Weights' table in Part IV of the provided document.
+Instruction:
+Extract all assessment tasks from the "Detailed Assessment Weights" table in Part IV of the provided document.
 
 Constraint Rules:
 
-Granularity: You must separate collective tasks (e.g., 'Laboratory Activities 1-11') into individual objects for each item (1, 2, 3... 11).
+Granularity: You must separate collective tasks (e.g., "Laboratory Activities 1-11") into individual objects for each item (Activity 1, Activity 2, etc.).
 
 Object Structure: Each object in the JSON array must contain exactly these keys: co, task, task_weight_within_category, final_co_contribution, and domain.
 
-Data Normalization: >    - For domain, use the shorthand codes: C (Cognitive), P (Psychomotor), A (Affective).
+Data Normalization:
 
-For final_co_contribution, calculate the specific percentage weight assigned to that individual task relative to the total course grade.
+For domain, use the shorthand codes: C (Cognitive), P (Psychomotor), A (Affective).
 
-Output Format: Return ONLY a valid JSON object. No markdown, no conversational text.
+Numerical Cleaning: Strip the percentage symbol (%) and any non-numeric characters from weight values. For example, if the document says "7.5%", extract it as 7.5.
 
+Calculations: For final_co_contribution, calculate the specific percentage weight assigned to that individual task relative to the total course grade (100%).
+
+Output Format: Return ONLY a valid JSON object. No markdown, no conversational text, and no pre-amble.
 Schema Template:
 
 JSON
